@@ -485,19 +485,27 @@ document.addEventListener('DOMContentLoaded', () => {
       amountOptions.forEach(o => o.classList.remove('selected'));
       opt.classList.add('selected');
       const val = opt.getAttribute('data-val');
+      const numVal = parseFloat(val);
       if (customAmountInput) {
-        customAmountInput.value = `R$ ${val},00`;
+        if (!isNaN(numVal)) {
+          customAmountInput.value = numVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        } else {
+          customAmountInput.value = `R$ ${val}`;
+        }
       }
     });
   });
 
   if (customAmountInput) {
     customAmountInput.addEventListener('input', () => {
-      const rawVal = customAmountInput.value.replace(/[^0-9]/g, '');
-      const numVal = parseInt(rawVal, 10);
+      let rawVal = customAmountInput.value.replace(/[^\d,.-]/g, '');
+      if (rawVal.includes(',')) {
+        rawVal = rawVal.replace(/\./g, '').replace(',', '.');
+      }
+      const numVal = parseFloat(rawVal);
       amountOptions.forEach(o => {
-        const optVal = parseInt(o.getAttribute('data-val'), 10);
-        if (optVal === numVal) {
+        const optVal = parseFloat(o.getAttribute('data-val'));
+        if (!isNaN(optVal) && !isNaN(numVal) && Math.abs(optVal - numVal) < 0.01) {
           o.classList.add('selected');
         } else {
           o.classList.remove('selected');
@@ -729,9 +737,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const originalText = confirmDonateBtn.textContent;
       confirmDonateBtn.textContent = 'Gerando PIX...';
 
-      let amount = 25;
+      let amount = 33.42;
       if (customAmountInput) {
-        const parsed = parseFloat(customAmountInput.value.replace(/[^0-9,.]/g, '').replace(',', '.'));
+        let clean = customAmountInput.value.replace(/[^\d,.-]/g, '');
+        if (clean.includes(',')) {
+          clean = clean.replace(/\./g, '').replace(',', '.');
+        }
+        const parsed = parseFloat(clean);
         if (!isNaN(parsed) && parsed > 0) {
           amount = Math.min(parsed, 1000.0);
         }
