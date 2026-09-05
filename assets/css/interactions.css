@@ -2829,7 +2829,7 @@ html, body {
   color: #64748b !important;
 }
 
-/* Mobile Sticky Bottom CTA Bar */
+/* Mobile Sticky Bottom CTA Bar - Permanent Fixed Bar on Mobile */
 .vk-mobile-sticky-bar {
   display: none;
   position: fixed !important;
@@ -2839,26 +2839,28 @@ html, body {
   width: 100% !important;
   background: #ffffff !important;
   border-top: 1px solid #e2e8f0 !important;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08) !important;
   padding: 8px 16px max(8px, env(safe-area-inset-bottom)) 16px !important;
   z-index: 998 !important;
   box-sizing: border-box !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 12px !important;
-  transform: translateY(100%);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transform: none !important;
 }
 
 @media (max-width: 768px) {
   body {
-    padding-bottom: 72px !important;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .vk-mobile-sticky-bar {
     display: flex !important;
+    transform: none !important;
   }
-  .vk-mobile-sticky-bar.visible {
-    transform: translateY(0) !important;
+  /* Hide ONLY when a modal is active so content is not blocked */
+  .vk-modal-backdrop.active ~ .vk-mobile-sticky-bar,
+  body.vk-modal-open .vk-mobile-sticky-bar {
+    display: none !important;
   }
   /* Disable competing floating mini-card on mobile */
   .vk-floating-minicard {
@@ -3920,7 +3922,7 @@ html, body {
   transform: scale(0.99) !important;
 }
 
-/* Mobile Sticky Bottom CTA Bar Refinement */
+/* Mobile Sticky Bottom CTA Bar Refinement - Permanent Fixed on Mobile */
 .vk-mobile-sticky-bar {
   display: none;
   position: fixed !important;
@@ -3937,19 +3939,16 @@ html, body {
   align-items: center !important;
   justify-content: space-between !important;
   gap: 12px !important;
-  transform: translateY(100%);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transform: none !important;
 }
 
 @media (max-width: 768px) {
   body {
-    padding-bottom: 68px !important;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .vk-mobile-sticky-bar {
     display: flex !important;
-  }
-  .vk-mobile-sticky-bar.visible {
-    transform: translateY(0) !important;
+    transform: none !important;
   }
 }
 

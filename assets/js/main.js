@@ -1359,54 +1359,35 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================================================
-  // 8. CRO: MOBILE STICKY BOTTOM CTA BAR (INTERSECTION & SCROLL POSITION AWARE)
+  // 8. CRO: MOBILE STICKY BOTTOM CTA BAR (PERMANENT FIXED ON MOBILE)
   // ==========================================================================
   const mobileStickyBar = document.getElementById('vk-mobile-sticky-bar');
-  const inPageMainCtaBtn = document.querySelector('.vk-cta-premium');
 
   if (mobileStickyBar) {
-    function hasScrolledPastMainBtn() {
-      if (!inPageMainCtaBtn) return false;
-      const rect = inPageMainCtaBtn.getBoundingClientRect();
-      // Considered scrolled past when the button has scrolled completely above the viewport
-      return rect.bottom <= 50;
-    }
-
     function updateMobileStickyState() {
       if (window.innerWidth <= 768) {
+        // Only hide when a payment/donation modal is open so it doesn't overlap modal content
         const isAnyModalOpen = document.querySelector(
           '.vk-modal-backdrop.active, .vk-post-donation-backdrop.active, .vk-exit-intent-backdrop.active, .bm-menu-wrap.open'
         );
 
-        // Sticky bar ONLY appears after user scrolls past the main button and no modal is open
-        const shouldShow = hasScrolledPastMainBtn() && !isAnyModalOpen;
-
-        if (shouldShow) {
-          mobileStickyBar.classList.add('visible');
-          mobileStickyBar.setAttribute('aria-hidden', 'false');
-        } else {
-          mobileStickyBar.classList.remove('visible');
+        if (isAnyModalOpen) {
+          mobileStickyBar.style.setProperty('display', 'none', 'important');
           mobileStickyBar.setAttribute('aria-hidden', 'true');
+        } else {
+          mobileStickyBar.style.setProperty('display', 'flex', 'important');
+          mobileStickyBar.setAttribute('aria-hidden', 'false');
         }
       } else {
-        mobileStickyBar.classList.remove('visible');
+        mobileStickyBar.style.setProperty('display', 'none', 'important');
         mobileStickyBar.setAttribute('aria-hidden', 'true');
       }
     }
     window.updateMobileStickyState = updateMobileStickyState;
 
-    if ('IntersectionObserver' in window && inPageMainCtaBtn) {
-      const ctaObserver = new IntersectionObserver(() => {
-        updateMobileStickyState();
-      }, {
-        threshold: [0, 0.1, 0.5, 1.0]
-      });
-      ctaObserver.observe(inPageMainCtaBtn);
-    }
-
-    window.addEventListener('scroll', updateMobileStickyState, { passive: true });
+    // Permanent on mobile: does not depend on scroll, position or IntersectionObserver
     window.addEventListener('resize', updateMobileStickyState);
-    setTimeout(updateMobileStickyState, 150);
+    updateMobileStickyState();
 
     const stickyDonateBtn = mobileStickyBar.querySelector('[data-action="donate"]');
     if (stickyDonateBtn) {
