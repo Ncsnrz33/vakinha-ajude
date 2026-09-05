@@ -630,7 +630,14 @@ document.addEventListener('DOMContentLoaded', () => {
       currentActivePaymentId = paymentObj.id || data.id;
 
       // Update QR Code
-      const qrSource = paymentObj.qrImageUrl || paymentObj.qr_code_image_url || paymentObj.qrBase64 || paymentObj.qr_code_base64;
+      let qrSource = paymentObj.qrImageUrl || paymentObj.qr_code_image_url || paymentObj.qrBase64 || paymentObj.qr_code_base64;
+      const copyPasteCode = paymentObj.pixCopyPaste || paymentObj.qr_code_text || '';
+
+      // Fallback: If no direct image URL was provided, generate standard QR image from real PIX EMV code
+      if (!qrSource && copyPasteCode) {
+        qrSource = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(copyPasteCode)}`;
+      }
+
       if (qrImg && qrSource) {
         if (qrSource.startsWith('data:') || qrSource.startsWith('http://') || qrSource.startsWith('https://')) {
           qrImg.src = qrSource;
@@ -646,7 +653,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Update Copia e Cola
       if (copyInput) {
-        copyInput.value = paymentObj.pixCopyPaste || paymentObj.qr_code_text || '';
+        copyInput.value = copyPasteCode;
       }
 
       // Setup Copy Button
@@ -681,7 +688,27 @@ document.addEventListener('DOMContentLoaded', () => {
       const userMsg = err.message || 'Não foi possível gerar o PIX agora. Tente novamente em alguns instantes.';
       showToast(userMsg);
       if (qrSkeleton) {
-        qrSkeleton.innerHTML = `<span style="color:#ef4444;font-size:12px;padding:8px;text-align:center">${userMsg}</span>`;
+        qrSkeleton.innerHTML = `
+          <div style="text-align:center;padding:12px 14px;color:#dc2626;display:flex;flex-direction:column;align-items:center;gap:8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span style="font-size:12px;font-weight:600;line-height:1.4">${userMsg}</span>
+            <button type="button" id="pix-retry-btn" style="background:#009d4e;color:#fff;border:none;border-radius:20px;padding:6px 16px;font-family:'Montserrat',sans-serif;font-size:11.5px;font-weight:700;cursor:pointer;margin-top:2px;">Tentar novamente</button>
+          </div>
+        `;
+        const retryBtn = document.getElementById('pix-retry-btn');
+        if (retryBtn) {
+          retryBtn.onclick = () => {
+            qrSkeleton.innerHTML = `
+              <div class="vk-pix-spinner"></div>
+              <span>Gerando cobrança PIX...</span>
+            `;
+            startPixPayment(type, amount, extraMeta, onPaidSuccess);
+          };
+        }
       }
     });
   }
@@ -699,33 +726,46 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Setup Sandbox Simulate Button
+  // Developer Sandbox Helper (Strictly disabled and hidden in production)
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const urlParams = new URLSearchParams(window.location.search);
+  const showDevSandbox = isLocalDev && urlParams.get('sandbox_debug') === '1';
+
+  const pixSandboxBar = document.querySelector('.vk-pix-sandbox-bar');
   const pixSandboxBtn = document.getElementById('pix-sandbox-test-confirm');
   const zapBtnSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;display:inline-block"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
-  if (pixSandboxBtn) {
-    pixSandboxBtn.addEventListener('click', () => {
-      if (!currentActivePaymentId) {
-        showToast('Nenhum pagamento PIX ativo.');
-        return;
-      }
-      pixSandboxBtn.textContent = 'Confirmando...';
-      fetch('/api/payments/sandbox/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: currentActivePaymentId, payment_id: currentActivePaymentId })
-      })
-      .then(res => res.json())
-      .then(res => {
-        pixSandboxBtn.innerHTML = `${zapBtnSvg}Simular Confirmação PIX (Sandbox)`;
-        if (res.success) {
-          showToast('Confirmação Sandbox disparada! Processando...');
+
+  if (pixSandboxBar && pixSandboxBtn) {
+    if (showDevSandbox) {
+      pixSandboxBar.style.setProperty('display', 'flex', 'important');
+      pixSandboxBtn.style.setProperty('display', 'flex', 'important');
+      pixSandboxBtn.addEventListener('click', () => {
+        if (!currentActivePaymentId) {
+          showToast('Nenhum pagamento PIX ativo.');
+          return;
         }
-      })
-      .catch(err => {
-        pixSandboxBtn.innerHTML = `${zapBtnSvg}Simular Confirmação PIX (Sandbox)`;
-        console.error('Erro sandbox confirm:', err);
+        pixSandboxBtn.textContent = 'Confirmando...';
+        fetch('/api/payments/sandbox/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: currentActivePaymentId, payment_id: currentActivePaymentId })
+        })
+        .then(res => res.json())
+        .then(res => {
+          pixSandboxBtn.innerHTML = `${zapBtnSvg}Simular Confirmação PIX (Sandbox)`;
+          if (res.success) {
+            showToast('Confirmação Sandbox disparada! Processando...');
+          }
+        })
+        .catch(err => {
+          pixSandboxBtn.innerHTML = `${zapBtnSvg}Simular Confirmação PIX (Sandbox)`;
+          console.error('Erro sandbox confirm:', err);
+        });
       });
-    });
+    } else {
+      pixSandboxBar.style.setProperty('display', 'none', 'important');
+      pixSandboxBtn.style.setProperty('display', 'none', 'important');
+    }
   }
 
   // --- Confirm First Donation with PIX -> Advances to Post-Donation Flow ---

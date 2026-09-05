@@ -149,9 +149,24 @@ class handler(BaseHTTPRequestHandler):
                 }
                 return self._send_json(200, response_data)
 
+            except urllib.error.HTTPError as e:
+                err_text = getattr(e, "custom_detail", "")
+                print(f"[Vercel Generate Error HTTP {e.code}] Upstream CaosPay: {err_text[:200]}", flush=True)
+                msg = "Não foi possível gerar o PIX agora. Tente novamente em alguns instantes."
+                if e.code == 401:
+                    msg = "Credenciais do provedor de pagamento inválidas ou expiradas."
+                elif e.code == 400:
+                    msg = "Dados inválidos para a criação do PIX. Verifique os valores informados."
+                elif e.code in [502, 503, 504]:
+                    msg = "O gateway de pagamento CaosPay está temporariamente instável. Tente novamente em instantes."
+                return self._send_json(e.code if e.code in [400, 401, 403, 422] else 502, {
+                    "success": False,
+                    "message": msg,
+                    "error_code": e.code
+                })
             except Exception as e:
                 print(f"[Vercel Generate Error] {type(e).__name__}: {e}", flush=True)
-                return self._send_json(502, {
+                return self._send_json(500, {
                     "success": False,
                     "message": "Não foi possível gerar o PIX agora. Tente novamente em alguns instantes."
                 })

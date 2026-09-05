@@ -40,7 +40,7 @@ def get_env_var(key, default=""):
     return os.environ.get(key) or ENV.get(key) or default
 
 CAOSPAY_API_URL = get_env_var("CAOSPAY_API_URL", "https://caospayment.shop/api/pay")
-CAOSPAY_API_TOKEN = get_env_var("CAOSPAY_API_TOKEN", "cpk_test_COLOQUE_O_TOKEN_AQUI")
+CAOSPAY_API_TOKEN = get_env_var("CAOSPAY_API_TOKEN", "cpk_test_742e6048c9e4924c1ac58f7a37e9da770f24deba66d588cb")
 USE_PAYMENT_MOCK = get_env_var("USE_PAYMENT_MOCK", "false").strip().lower() == "true"
 PORT = int(get_env_var("PORT", "3000"))
 
@@ -142,17 +142,28 @@ class CaosPayClient:
                 data = json.loads(resp.read().decode("utf-8"))
                 if data.get("success") and "payment" in data:
                     p = data["payment"]
-                    print(f"[CaosPay] payment created id={p.get('id')}")
+                    print(f"[CaosPay] payment created id={p.get('id')}", flush=True)
+                    # Automatic QR Code image fallback from copy-paste EMV payload
+                    if not p.get("qr_image_url") and not p.get("qr_src") and not p.get("qr_base64"):
+                        emv = p.get("qr_copy_paste") or p.get("pixCopyPaste")
+                        if emv:
+                            p["qr_image_url"] = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={urllib.parse.quote(emv)}"
                     return p
                 else:
                     err_msg = data.get("message") or "Erro na resposta da CaosPay"
-                    print(f"[CaosPay] generate failed status={resp.status}")
+                    print(f"[CaosPay] generate failed status={resp.status}, msg={err_msg}", flush=True)
                     raise RuntimeError(err_msg)
         except urllib.error.HTTPError as e:
-            print(f"[CaosPay] generate failed status={e.code}")
+            err_body = ""
+            try:
+                err_body = e.read().decode("utf-8", errors="replace")
+            except Exception:
+                pass
+            print(f"[CaosPay HTTP Error] Status={e.code}, Reason={e.reason}, Body={err_body[:300]}", flush=True)
+            e.custom_detail = err_body
             raise
         except Exception as e:
-            print(f"[CaosPay] generate failed status=502")
+            print(f"[CaosPay Unexpected Error] {type(e).__name__}: {e}", flush=True)
             raise
 
     def check_status(self, transaction_id):
@@ -344,9 +355,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 }
                 return self._send_json(200, response_data)
 
+            except urllib.error.HTTPError as e:
+                err_text = getattr(e, "custom_detail", "")
+                print(f"[Generate Error HTTP {e.code}] Upstream CaosPay: {err_text[:200]}", flush=True)
+                msg = "Não foi possível gerar o PIX agora. Tente novamente em alguns instantes."
+                if e.code == 401:
+                    msg = "Credenciais do provedor de pagamento inválidas ou expiradas."
+                elif e.code == 400:
+                    msg = "Dados inválidos para a criação do PIX. Verifique os valores informados."
+                elif e.code in [502, 503, 504]:
+                    msg = "O gateway de pagamento CaosPay está temporariamente instável. Tente novamente em instantes."
+                return self._send_json(e.code if e.code in [400, 401, 403, 422] else 502, {
+                    "success": False,
+                    "message": msg,
+                    "error_code": e.code
+                })
             except Exception as e:
                 print(f"[Generate Error] {type(e).__name__}: {e}", flush=True)
-                return self._send_json(502, {
+                return self._send_json(500, {
                     "success": False,
                     "message": "Não foi possível gerar o PIX agora. Tente novamente em alguns instantes."
                 })
