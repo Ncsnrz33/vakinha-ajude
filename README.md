@@ -1,7 +1,6 @@
-# Reprodução Local da Página Vakinha: "Força, Kabuto"
+# Sementes do Amanhã — Juntos por um Novo Começo
 
-Clone de altíssima fidelidade visual e interativa da página da campanha Vakinha:
-**URL Original:** `https://www.vakinha.com.br/vaquinha/forca-kabuto-juntos-pela-sua-recuperacao?utm_internal_source=home_most_loved`
+Campanha solidária com integração completa de pagamentos PIX via CaosPay e arquitetura Serverless pronta para deploy contínuo na Vercel.
 
 ---
 
