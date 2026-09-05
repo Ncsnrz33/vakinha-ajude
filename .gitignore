@@ -1,0 +1,25 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Logs & Temporary Files
+*.log
+scratch/
+.system_generated/
+caospay_sandbox_final_report.json
+e2e_results.json
+
+# Vercel
+.vercel/

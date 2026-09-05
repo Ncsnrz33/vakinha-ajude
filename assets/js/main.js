@@ -1,0 +1,1088 @@
+/**
+ * Vakinha Clone - Main Interactive Controller & Campaign Configuration
+ */
+
+// ==========================================================================
+// 1. CENTRALIZED CAMPAIGN CONFIGURATION
+// ==========================================================================
+const campaignConfig = {
+  title: "Sementes do Amanhã — Juntos por um Novo Começo",
+  description: `ELAS NÃO ESCOLHERAM A FOME. MUITO MENOS A DOENÇA.
+
+Enquanto tantas crianças brincam, comem e dormem tranquilas, outras enfrentam fome, abandono, falta de estrutura e doenças graves que nenhuma criança deveria conhecer.
+
+São pequenos que deveriam estar pensando em brinquedos e sonhos, mas precisam enfrentar hospitais, tratamentos, medicamentos e dores que não deveriam fazer parte da infância.
+
+Nossa ONG luta para oferecer comida, cuidados, tratamento e dignidade. Mas hoje, essas crianças precisam de você.
+
+R$ 5, R$ 10 ou qualquer valor pode significar uma refeição, um medicamento, um tratamento ou simplesmente um pouco de esperança.
+
+Se você pode ajudar, ajude. Não espere que outra pessoa faça por você.
+
+E se não puder doar, compartilhe. Talvez um simples compartilhamento seu seja a ajuda que uma dessas crianças estava esperando.
+
+Elas já enfrentam coisas demais. Não deixe que a falta de ajuda seja mais uma delas.
+
+Doe por uma criança que só queria ter o direito de ser criança.`,
+  remainingAmount: 33.42,
+  goalMeta: 1500.00,
+  currentRaised: 1466.58, // goalMeta - remainingAmount
+  videoOfferPrice: 8.99,
+  donorCount: 9720
+};
+
+// Expose globally for inspections/extensions
+window.campaignConfig = campaignConfig;
+
+// Centralized minimum goal completion threshold in integer cents (R$ 2,00)
+const MIN_GOAL_COMPLETION_CENTS = 200;
+window.MIN_GOAL_COMPLETION_CENTS = MIN_GOAL_COMPLETION_CENTS;
+
+function getRemainingCents() {
+  const goalCents = Math.round(campaignConfig.goalMeta * 100);
+  const raisedCents = Math.round(campaignConfig.currentRaised * 100);
+  return Math.max(0, goalCents - raisedCents);
+}
+window.getRemainingCents = getRemainingCents;
+
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Toast Notification Helper ---
+  const toast = document.getElementById('vk-toast');
+  const toastMsg = document.getElementById('vk-toast-message');
+  let toastTimeout = null;
+
+  function showToast(message) {
+    if (!toast) return;
+    if (toastMsg) toastMsg.textContent = message;
+    toast.classList.add('show');
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3200);
+  }
+  window.showToast = showToast;
+
+  // --- Copy to Clipboard for PIX and Links ---
+  function copyTextToClipboard(text, successMsg) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(successMsg || 'Copiado para a área de transferência!');
+      }).catch(() => fallbackCopy(text, successMsg));
+    } else {
+      fallbackCopy(text, successMsg);
+    }
+  }
+
+  function fallbackCopy(text, successMsg) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      showToast(successMsg || 'Copiado com sucesso!');
+    } catch (err) {
+      showToast('Erro ao copiar!');
+    }
+    document.body.removeChild(textArea);
+  }
+
+  // Attach to all elements with data-clipboard-text or copy classes
+  document.querySelectorAll('[data-clipboard-text]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      const text = el.getAttribute('data-clipboard-text');
+      if (text) {
+        copyTextToClipboard(text, 'Copiado com sucesso!');
+      }
+    });
+  });
+
+  // Attach to "Ver selos" link to activate selos tab
+  const verSelosBtn = document.getElementById('ver-selos-btn') || document.querySelector('.sc-bf13f7ff-0 .kTFsLt');
+  if (verSelosBtn) {
+    verSelosBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const selosTabBtn = document.querySelector('.vk-tab-btn[data-tab="selos"]');
+      if (selosTabBtn) {
+        selosTabBtn.click();
+        const tabsSection = document.querySelector('.sc-dhKdcB.iGWHkz');
+        if (tabsSection) tabsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+
+  // --- Tab Switching Logic ---
+  const tabButtons = document.querySelectorAll('.vk-tab-btn');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-tab');
+
+      tabButtons.forEach(b => {
+        b.classList.remove('hpTUvZ');
+        b.classList.add('fccSwh');
+        const textDiv = b.querySelector('div');
+        if (textDiv) {
+          textDiv.classList.remove('bvrBZr');
+          textDiv.classList.add('fGoREw');
+        }
+      });
+
+      btn.classList.remove('fccSwh');
+      btn.classList.add('hpTUvZ');
+      const activeTextDiv = btn.querySelector('div');
+      if (activeTextDiv) {
+        activeTextDiv.classList.remove('fGoREw');
+        activeTextDiv.classList.add('bvrBZr');
+      }
+
+      tabPanels.forEach(panel => {
+        if (panel.id === `tab-${targetId}`) {
+          panel.classList.add('active');
+        } else {
+          panel.classList.remove('active');
+        }
+      });
+    });
+  });
+
+  // --- FAQ Accordion in "Perguntas e Respostas" Tab ---
+  document.querySelectorAll('.vk-faq-question').forEach(q => {
+    q.addEventListener('click', () => {
+      const item = q.closest('.vk-faq-item');
+      if (item) {
+        item.classList.toggle('open');
+      }
+    });
+  });
+
+  // --- Heart Like Button Interaction ---
+  const heartBtn = document.querySelector('[data-cy="give-sticker-button"]');
+  const heartCountEl = document.getElementById('heart-count-value');
+  let isLiked = false;
+  let baseHearts = 9340;
+
+  if (heartBtn) {
+    heartBtn.addEventListener('click', () => {
+      isLiked = !isLiked;
+      heartBtn.classList.toggle('liked', isLiked);
+      if (heartCountEl) {
+        heartCountEl.textContent = isLiked ? (baseHearts + 1) : baseHearts;
+      }
+      showToast(isLiked ? 'Você enviou um coração para esta vaquinha!' : 'Coração removido');
+    });
+  }
+
+  // --- "Ver tudo" / "Ver menos" Expander ---
+  const shortDesc = document.getElementById('short-desc-text');
+  let isExpanded = false;
+
+  function setupVerTudo() {
+    const verTudoBtn = document.getElementById('ver-tudo-btn');
+    if (!verTudoBtn || !shortDesc) return;
+
+    const heartCrackSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;display:inline-block;margin-right:4px"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="m12 13-1-1 2-2-3-3 2-2"/></svg>';
+    const truncated = `${heartCrackSvg} ELAS NÃO ESCOLHERAM A FOME. MUITO MENOS A DOENÇA. Enquanto tantas crianças brincam, comem e dormem tranquilas, outras enfrentam fome, abandono, falta de estrutura e doenças graves que nenhuma criança deveria conhecer. `;
+    const full = campaignConfig.description.replace(/\n\n/g, '<br><br>');
+
+    verTudoBtn.onclick = (e) => {
+      e.preventDefault();
+      isExpanded = !isExpanded;
+      if (isExpanded) {
+        shortDesc.innerHTML = `${heartCrackSvg} ${full} <span class="sc-fqkvVR jKFlAz" id="ver-tudo-btn" style="cursor:pointer;font-weight:700">ver menos</span>`;
+      } else {
+        shortDesc.innerHTML = `${truncated}<span class="sc-fqkvVR jKFlAz" id="ver-tudo-btn" style="cursor:pointer;font-weight:700">ver tudo</span>`;
+      }
+      setupVerTudo();
+    };
+  }
+  setupVerTudo();
+
+  // --- Mobile Drawer Menu ---
+  const burgerOpenBtn = document.getElementById('react-burger-menu-btn');
+  const burgerCloseBtn = document.getElementById('react-burger-cross-btn');
+  const menuWrap = document.querySelector('.bm-menu-wrap');
+  const menuOverlay = document.querySelector('.bm-overlay');
+
+  function openMobileMenu() {
+    if (menuWrap) menuWrap.classList.add('open');
+    if (menuOverlay) menuOverlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMobileMenu() {
+    if (menuWrap) menuWrap.classList.remove('open');
+    if (menuOverlay) menuOverlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  if (burgerOpenBtn) burgerOpenBtn.addEventListener('click', openMobileMenu);
+  if (burgerCloseBtn) burgerCloseBtn.addEventListener('click', closeMobileMenu);
+  if (menuOverlay) menuOverlay.addEventListener('click', closeMobileMenu);
+
+  // --- Floating Mini-Card Visibility Helpers ---
+  function hideNormalMinicard() {
+    const minicard = document.getElementById('vk-floating-minicard');
+    if (minicard) {
+      minicard.classList.remove('show');
+      minicard.setAttribute('aria-hidden', 'true');
+    }
+  }
+  window.hideNormalMinicard = hideNormalMinicard;
+
+  function hideCheckoutRecoveryCard() {
+    const recoveryCard = document.getElementById('vk-checkout-recovery-card');
+    if (recoveryCard) {
+      recoveryCard.classList.remove('show');
+      recoveryCard.setAttribute('aria-hidden', 'true');
+    }
+  }
+  window.hideCheckoutRecoveryCard = hideCheckoutRecoveryCard;
+
+  // --- Modal Helpers ---
+  function openModal(modalId) {
+    hideNormalMinicard();
+    hideCheckoutRecoveryCard();
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+  window.openModal = openModal;
+
+  function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+  }
+  window.closeModal = closeModal;
+
+  // Close modals on close button or backdrop click
+  document.querySelectorAll('.vk-modal-close').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const modal = btn.closest('.vk-modal-backdrop');
+      if (modal) {
+        if (modal.id === 'pix-checkout-modal' && typeof stopPixPolling === 'function') {
+          stopPixPolling();
+        }
+        closeModal(modal.id);
+        if (modal.id === 'pix-checkout-modal' && typeof handleCheckoutClosed === 'function') {
+          handleCheckoutClosed();
+        }
+      }
+    });
+  });
+
+  document.querySelectorAll('.vk-modal-backdrop').forEach(backdrop => {
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
+        if (backdrop.id === 'pix-checkout-modal' && typeof stopPixPolling === 'function') {
+          stopPixPolling();
+        }
+        closeModal(backdrop.id);
+        if (backdrop.id === 'pix-checkout-modal' && typeof handleCheckoutClosed === 'function') {
+          handleCheckoutClosed();
+        }
+      }
+    });
+  });
+
+  // --- Share Modal Trigger ---
+  const shareButtons = document.querySelectorAll('[data-action="share"]');
+  shareButtons.forEach(btn => {
+    btn.addEventListener('click', () => openModal('share-modal'));
+  });
+
+  const copyShareLinkBtn = document.getElementById('copy-share-link-btn');
+  const shareLinkInput = document.getElementById('share-link-input');
+  if (copyShareLinkBtn && shareLinkInput) {
+    copyShareLinkBtn.addEventListener('click', () => {
+      copyTextToClipboard(shareLinkInput.value, 'Link da vaquinha copiado com sucesso!');
+    });
+  }
+
+  // --- Deactivated / No-Action Handlers ---
+  document.querySelectorAll('.vk-no-action').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+
+  // --- Currency Formatter ---
+  function formatBRL(value) {
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+  window.formatBRL = formatBRL;
+
+  // --- Dynamic Goal & Campaign State Sync ---
+  let hasAnimatedProgressBar = false;
+
+  function updateGoalDisplay() {
+    // Campaign sidebar elements
+    const raisedEl = document.getElementById('raised-amount-val');
+    const remainingEl = document.getElementById('goal-remaining-val');
+    const remainingTextEl = document.getElementById('goal-remaining-text');
+    const progressFill = document.getElementById('goal-progress-fill');
+    const percentEl = document.getElementById('goal-progress-percent');
+    const donorCountEl = document.getElementById('donor-count-val');
+
+    // Calculate dynamic values strictly using integer cents
+    const remainingCents = getRemainingCents();
+    const remaining = remainingCents / 100;
+    const current = Math.round(campaignConfig.currentRaised * 100) / 100;
+    const meta = Math.round(campaignConfig.goalMeta * 100) / 100;
+    campaignConfig.remainingAmount = remaining;
+
+    const pct = Math.min(100, Math.round((current / meta) * 100));
+
+    if (raisedEl) raisedEl.textContent = formatBRL(current);
+    if (percentEl) percentEl.textContent = `${pct}%`;
+
+    const targetWidth = `${(current / meta) * 100}%`;
+    if (progressFill) {
+      if (!hasAnimatedProgressBar) {
+        const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReducedMotion) {
+          progressFill.style.transition = 'none';
+          progressFill.style.width = targetWidth;
+          hasAnimatedProgressBar = true;
+        } else {
+          progressFill.style.width = '0%';
+          progressFill.style.transition = 'width 0.9s cubic-bezier(0.16, 1, 0.3, 1)';
+          setTimeout(() => {
+            progressFill.style.width = targetWidth;
+            hasAnimatedProgressBar = true;
+          }, 150);
+        }
+      } else {
+        progressFill.style.width = targetWidth;
+      }
+    }
+
+    if (remaining <= 0 && remainingTextEl) {
+      remainingTextEl.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="#f59e0b" stroke="#d97706" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;display:inline-block;margin-right:4px"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg> <strong>Meta alcançada!</strong> Obrigado a todos os apoiadores!`;
+    } else if (remainingTextEl) {
+      if (pct >= 90) {
+        remainingTextEl.innerHTML = `Falta muito pouco: Só <strong class="vk-urgency-val" id="goal-remaining-val">${formatBRL(remaining)}</strong> para completar a meta`;
+      } else {
+        remainingTextEl.innerHTML = `Faltam <strong class="vk-urgency-val" id="goal-remaining-val">${formatBRL(remaining)}</strong> para atingir a meta`;
+      }
+    } else if (remainingEl) {
+      remainingEl.textContent = formatBRL(remaining);
+    }
+
+    // Synchronize CRO Elements
+    const minicardRemaining = document.getElementById('minicard-remaining-val');
+    const exitIntentRemaining = document.getElementById('exit-intent-remaining-val');
+    const mobileStickyRemaining = document.getElementById('mobile-sticky-remaining-val');
+    if (minicardRemaining) minicardRemaining.textContent = formatBRL(remaining);
+    if (exitIntentRemaining) exitIntentRemaining.textContent = formatBRL(remaining);
+    if (mobileStickyRemaining) mobileStickyRemaining.textContent = formatBRL(remaining);
+
+    if (donorCountEl) donorCountEl.textContent = campaignConfig.donorCount.toLocaleString('pt-BR');
+
+    // Synchronize Post-Donation Modal Elements
+    const postRemainingDisplay = document.getElementById('post-remaining-display');
+    const postMetricRaised = document.getElementById('post-metric-raised');
+    const postMetricGoal = document.getElementById('post-metric-goal');
+    const postMetricRemaining = document.getElementById('post-metric-remaining');
+    const postProgressFill = document.getElementById('post-modal-progress-fill');
+    const postBtnComplete = document.getElementById('post-btn-complete');
+    const postVideoPriceDisplay = document.getElementById('post-video-price-display');
+    const postBtnBuyVideo = document.getElementById('post-btn-buy-video');
+
+    if (postRemainingDisplay) postRemainingDisplay.textContent = formatBRL(remaining);
+    if (postMetricRaised) postMetricRaised.textContent = formatBRL(current);
+    if (postMetricGoal) postMetricGoal.textContent = formatBRL(meta);
+    if (postMetricRemaining) postMetricRemaining.textContent = formatBRL(remaining);
+    if (postProgressFill) postProgressFill.style.width = `${(current / meta) * 100}%`;
+    if (postBtnComplete) postBtnComplete.textContent = `Completar com ${formatBRL(remaining)}`;
+    if (postVideoPriceDisplay) postVideoPriceDisplay.textContent = formatBRL(campaignConfig.videoOfferPrice);
+    if (postBtnBuyVideo) postBtnBuyVideo.textContent = `Quero receber meu vídeo por ${formatBRL(campaignConfig.videoOfferPrice)}`;
+  }
+  window.updateGoalDisplay = updateGoalDisplay;
+
+  // Initial goal render
+  updateGoalDisplay();
+
+  // ==========================================================================
+  // 2. POST-DONATION MULTI-STEP FLOW CONTROLLER
+  // ==========================================================================
+  function openPostDonationFlow(step = 'payment-approved') {
+    closeModal('donate-modal');
+    sessionStorage.setItem('vk_donation_completed', '1');
+    const minicard = document.getElementById('vk-floating-minicard');
+    if (minicard) {
+      minicard.classList.remove('show');
+      minicard.setAttribute('aria-hidden', 'true');
+    }
+
+    // Minimum goal completion threshold rule:
+    // If remaining < MIN_GOAL_COMPLETION_CENTS (or <= 0), NEVER show the completion screen,
+    // go DIRECTLY to video-offer!
+    const remainingCents = getRemainingCents();
+    if ((step === 'payment-approved' || step === 'approved') && remainingCents < MIN_GOAL_COMPLETION_CENTS) {
+      step = 'video-offer';
+    }
+
+    // Deactivate all steps
+    document.querySelectorAll('.vk-post-step').forEach(s => s.classList.remove('active'));
+
+    if (step === 'payment-approved' || step === 'approved') {
+      const s = document.getElementById('post-step-approved');
+      if (s) s.classList.add('active');
+    } else if (step === 'video-offer' || step === 'video') {
+      const s = document.getElementById('post-step-video');
+      if (s) s.classList.add('active');
+    } else if (step === 'finished' || step === 'success') {
+      const s = document.getElementById('post-step-finished');
+      if (s) s.classList.add('active');
+    }
+
+    openModal('post-donation-modal');
+  }
+  window.openPostDonationFlow = openPostDonationFlow;
+
+  // --- Primary Donation Modal ("Quero Ajudar" & "Doar") ---
+  const donateButtons = document.querySelectorAll('[data-action="donate"]');
+  donateButtons.forEach(btn => {
+    btn.addEventListener('click', () => openModal('donate-modal'));
+  });
+
+  const amountOptions = document.querySelectorAll('.vk-amount-option');
+  const customAmountInput = document.getElementById('custom-donation-input');
+
+  amountOptions.forEach(opt => {
+    opt.addEventListener('click', () => {
+      amountOptions.forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      const val = opt.getAttribute('data-val');
+      if (customAmountInput) {
+        customAmountInput.value = `R$ ${val},00`;
+      }
+    });
+  });
+
+  if (customAmountInput) {
+    customAmountInput.addEventListener('input', () => {
+      const rawVal = customAmountInput.value.replace(/[^0-9]/g, '');
+      const numVal = parseInt(rawVal, 10);
+      amountOptions.forEach(o => {
+        const optVal = parseInt(o.getAttribute('data-val'), 10);
+        if (optVal === numVal) {
+          o.classList.add('selected');
+        } else {
+          o.classList.remove('selected');
+        }
+      });
+    });
+  }
+
+  // ==========================================================================
+  // CAOSPAY PIX PAYMENT CONTROLLER
+  // ==========================================================================
+  let activePollingTimer = null;
+  let currentActivePaymentId = null;
+  let currentActivePaymentAmount = 25;
+  let currentActivePaymentType = 'donation';
+  let currentActivePaymentOnSuccess = null;
+
+  function stopPixPolling() {
+    if (activePollingTimer) {
+      clearInterval(activePollingTimer);
+      activePollingTimer = null;
+    }
+  }
+  window.stopPixPolling = stopPixPolling;
+
+  function startPixPolling(paymentId, type, amount, onSuccess) {
+    stopPixPolling();
+    const pid = paymentId || currentActivePaymentId;
+    if (!pid) return;
+
+    const cb = onSuccess || currentActivePaymentOnSuccess;
+    activePollingTimer = setInterval(() => {
+      fetch(`/api/payments/${pid}/status`)
+        .then(res => res.json())
+        .then(statusData => {
+          if (statusData.status === 'paid') {
+            stopPixPolling();
+            sessionStorage.setItem('vk_donation_completed', '1');
+            sessionStorage.removeItem('vk_checkout_abandoned');
+            hideNormalMinicard();
+            hideCheckoutRecoveryCard();
+
+            const statusText = document.getElementById('pix-checkout-status-text');
+            if (statusText) statusText.textContent = 'Pagamento aprovado!';
+            showToast('Pagamento confirmado com sucesso via Pix!');
+
+            setTimeout(() => {
+              closeModal('pix-checkout-modal');
+              if (typeof cb === 'function') {
+                cb(statusData);
+              }
+            }, 600);
+          }
+        })
+        .catch(err => {
+          console.error('Erro na consulta de status do PIX:', err);
+        });
+    }, 3000);
+  }
+  window.startPixPolling = startPixPolling;
+
+  function startPixPayment(type, amount, extraMeta = {}, onPaidSuccess) {
+    stopPixPolling();
+    currentActivePaymentId = null;
+    currentActivePaymentAmount = amount;
+    currentActivePaymentType = type;
+    currentActivePaymentOnSuccess = onPaidSuccess;
+
+    // Reset PIX modal state
+    const pixAmountEl = document.getElementById('pix-checkout-amount');
+    const qrImg = document.getElementById('pix-qr-image');
+    const qrSkeleton = document.getElementById('pix-qr-loading');
+    const copyInput = document.getElementById('pix-copy-paste-input');
+    const statusText = document.getElementById('pix-checkout-status-text');
+    const copyBtn = document.getElementById('pix-copy-btn');
+
+    if (pixAmountEl) pixAmountEl.textContent = formatBRL(amount);
+    if (qrImg) {
+      qrImg.src = '';
+      qrImg.style.display = 'none';
+    }
+    if (qrSkeleton) {
+      qrSkeleton.classList.remove('hidden');
+      qrSkeleton.style.display = 'flex';
+    }
+    if (copyInput) copyInput.value = '';
+    if (statusText) statusText.textContent = 'Aguardando pagamento...';
+    if (copyBtn) {
+      copyBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span>Copiar</span>
+      `;
+    }
+
+    openModal('pix-checkout-modal');
+
+    // Call backend endpoint to generate PIX
+    const payload = {
+      type: type,
+      amount: amount,
+      payer_name: extraMeta.name || 'Apoiador Vakinha',
+      payer_document: extraMeta.document || '11144477735'
+    };
+
+    fetch('/api/payments/pix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok || (!data.success && !data.id)) {
+        throw new Error(data.message || data.error || 'Não foi possível gerar o PIX agora. Tente novamente em alguns instantes.');
+      }
+      return data;
+    })
+    .then(data => {
+      const paymentObj = data.payment || data;
+      currentActivePaymentId = paymentObj.id || data.id;
+
+      // Update QR Code
+      const qrSource = paymentObj.qrImageUrl || paymentObj.qr_code_image_url || paymentObj.qrBase64 || paymentObj.qr_code_base64;
+      if (qrImg && qrSource) {
+        if (qrSource.startsWith('data:') || qrSource.startsWith('http://') || qrSource.startsWith('https://')) {
+          qrImg.src = qrSource;
+        } else {
+          qrImg.src = `data:image/png;base64,${qrSource}`;
+        }
+        qrImg.style.display = 'block';
+      }
+      if (qrSkeleton) {
+        qrSkeleton.classList.add('hidden');
+        qrSkeleton.style.display = 'none';
+      }
+
+      // Update Copia e Cola
+      if (copyInput) {
+        copyInput.value = paymentObj.pixCopyPaste || paymentObj.qr_code_text || '';
+      }
+
+      // Setup Copy Button
+      if (copyBtn) {
+        copyBtn.onclick = () => {
+          if (copyInput && copyInput.value) {
+            copyTextToClipboard(copyInput.value, 'Código PIX copiado com sucesso!');
+            copyBtn.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 6L9 17l-5-5"></path>
+              </svg>
+              <span>Copiado!</span>
+            `;
+            setTimeout(() => {
+              copyBtn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Copiar</span>
+              `;
+            }, 2500);
+          }
+        };
+      }
+
+      // Start Polling every 3 seconds
+      startPixPolling(currentActivePaymentId, type, amount, onPaidSuccess);
+    })
+    .catch(err => {
+      console.error('Erro ao gerar cobrança PIX:', err);
+      const userMsg = err.message || 'Não foi possível gerar o PIX agora. Tente novamente em alguns instantes.';
+      showToast(userMsg);
+      if (qrSkeleton) {
+        qrSkeleton.innerHTML = `<span style="color:#ef4444;font-size:12px;padding:8px;text-align:center">${userMsg}</span>`;
+      }
+    });
+  }
+  window.startPixPayment = startPixPayment;
+
+  // Setup Close Pix Modal
+  const pixCheckoutCloseBtn = document.getElementById('pix-checkout-close');
+  if (pixCheckoutCloseBtn) {
+    pixCheckoutCloseBtn.addEventListener('click', () => {
+      stopPixPolling();
+      closeModal('pix-checkout-modal');
+      if (typeof handleCheckoutClosed === 'function') {
+        handleCheckoutClosed();
+      }
+    });
+  }
+
+  // Setup Sandbox Simulate Button
+  const pixSandboxBtn = document.getElementById('pix-sandbox-test-confirm');
+  const zapBtnSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;display:inline-block"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+  if (pixSandboxBtn) {
+    pixSandboxBtn.addEventListener('click', () => {
+      if (!currentActivePaymentId) {
+        showToast('Nenhum pagamento PIX ativo.');
+        return;
+      }
+      pixSandboxBtn.textContent = 'Confirmando...';
+      fetch('/api/payments/sandbox/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentActivePaymentId, payment_id: currentActivePaymentId })
+      })
+      .then(res => res.json())
+      .then(res => {
+        pixSandboxBtn.innerHTML = `${zapBtnSvg}Simular Confirmação PIX (Sandbox)`;
+        if (res.success) {
+          showToast('Confirmação Sandbox disparada! Processando...');
+        }
+      })
+      .catch(err => {
+        pixSandboxBtn.innerHTML = `${zapBtnSvg}Simular Confirmação PIX (Sandbox)`;
+        console.error('Erro sandbox confirm:', err);
+      });
+    });
+  }
+
+  // --- Confirm First Donation with PIX -> Advances to Post-Donation Flow ---
+  const confirmDonateBtn = document.getElementById('confirm-donate-btn');
+  if (confirmDonateBtn) {
+    confirmDonateBtn.addEventListener('click', () => {
+      if (confirmDonateBtn.disabled) return;
+      confirmDonateBtn.disabled = true;
+      const originalText = confirmDonateBtn.textContent;
+      confirmDonateBtn.textContent = 'Gerando PIX...';
+
+      let amount = 25;
+      if (customAmountInput) {
+        const parsed = parseFloat(customAmountInput.value.replace(/[^0-9,.]/g, '').replace(',', '.'));
+        if (!isNaN(parsed) && parsed > 0) {
+          amount = Math.min(parsed, 1000.0);
+        }
+      }
+
+      closeModal('donate-modal');
+      confirmDonateBtn.disabled = false;
+      confirmDonateBtn.textContent = originalText;
+
+      startPixPayment('donation', amount, {}, (paidData) => {
+        const donationCents = Math.round(amount * 100);
+        const currentRaisedCents = Math.round(campaignConfig.currentRaised * 100) + donationCents;
+        campaignConfig.currentRaised = currentRaisedCents / 100;
+        campaignConfig.donorCount += 1;
+        updateGoalDisplay();
+
+        const remainingCents = getRemainingCents();
+        if (remainingCents >= MIN_GOAL_COMPLETION_CENTS) {
+          openPostDonationFlow('payment-approved');
+        } else {
+          openPostDonationFlow('video-offer');
+        }
+      });
+    });
+  }
+
+  // ==========================================================================
+  // 3. STEP 1 ACTIONS (PAGAMENTO APROVADO)
+  // ==========================================================================
+
+  // Action: "Completar com R$ XX,XX"
+  const postBtnComplete = document.getElementById('post-btn-complete');
+  if (postBtnComplete) {
+    postBtnComplete.addEventListener('click', () => {
+      if (postBtnComplete.disabled) return;
+      const remainingCents = getRemainingCents();
+      if (remainingCents < MIN_GOAL_COMPLETION_CENTS) {
+        openPostDonationFlow('video-offer');
+        return;
+      }
+      const remaining = remainingCents / 100;
+
+      postBtnComplete.disabled = true;
+      const origText = postBtnComplete.textContent;
+      postBtnComplete.textContent = 'Gerando PIX...';
+
+      closeModal('post-donation-modal');
+      postBtnComplete.disabled = false;
+      postBtnComplete.textContent = origText;
+
+      startPixPayment('goal_completion', remaining, {}, (paidData) => {
+        const goalCents = Math.round(campaignConfig.goalMeta * 100);
+        const completionCents = Math.round(remaining * 100);
+        const newRaisedCents = Math.min(goalCents, Math.round(campaignConfig.currentRaised * 100) + completionCents);
+        campaignConfig.currentRaised = newRaisedCents / 100;
+        updateGoalDisplay();
+        openPostDonationFlow('video-offer');
+      });
+    });
+  }
+
+  // Action: "Agora não" -> Advances to Screen 2 (Video Offer)
+  const postBtnNotNow = document.getElementById('post-btn-not-now');
+  if (postBtnNotNow) {
+    postBtnNotNow.addEventListener('click', () => {
+      // Do NOT close! Open Screen 2
+      openPostDonationFlow('video-offer');
+    });
+  }
+
+  // ==========================================================================
+  // 4. STEP 2 ACTIONS (VÍDEO DE AGRADECIMENTO)
+  // ==========================================================================
+
+  // Non-functional Play Button on Video Player Mockup
+  const videoPlayBtn = document.getElementById('vk-video-play-button');
+  if (videoPlayBtn) {
+    videoPlayBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showToast('Prévia do vídeo ilustrativa.');
+    });
+  }
+
+  // Action: "Quero receber meu vídeo por R$ 8,99"
+  const postBtnBuyVideo = document.getElementById('post-btn-buy-video');
+  if (postBtnBuyVideo) {
+    postBtnBuyVideo.addEventListener('click', () => {
+      if (postBtnBuyVideo.disabled) return;
+      const videoPrice = campaignConfig.videoOfferPrice; // 8.99
+
+      postBtnBuyVideo.disabled = true;
+      const origText = postBtnBuyVideo.textContent;
+      postBtnBuyVideo.textContent = 'Gerando PIX...';
+
+      closeModal('post-donation-modal');
+      postBtnBuyVideo.disabled = false;
+      postBtnBuyVideo.textContent = origText;
+
+      startPixPayment('thank_you_video', videoPrice, {}, (paidData) => {
+        openPostDonationFlow('finished');
+      });
+    });
+  }
+
+  // Action: "Continuar sem o vídeo" -> Closes flow & returns to campaign
+  const postBtnSkipVideo = document.getElementById('post-btn-skip-video');
+  if (postBtnSkipVideo) {
+    postBtnSkipVideo.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeModal('post-donation-modal');
+      showToast('Obrigado por apoiar a campanha Sementes do Amanhã!');
+    });
+  }
+
+  // ==========================================================================
+  // 5. STEP 3 ACTIONS (FINAL / CONCLUIR)
+  // ==========================================================================
+  const postBtnFinish = document.getElementById('post-btn-finish');
+  if (postBtnFinish) {
+    postBtnFinish.addEventListener('click', () => {
+      closeModal('post-donation-modal');
+      showToast('Obrigado por fazer a diferença na vida das crianças!');
+    });
+  }
+
+  const postModalCloseBtn = document.getElementById('post-modal-close-btn');
+  if (postModalCloseBtn) {
+    postModalCloseBtn.addEventListener('click', () => {
+      closeModal('post-donation-modal');
+    });
+  }
+
+  // ==========================================================================
+  // 6. CRO: FLOATING MINI-CARDS & POP-UP PRIORITY CONTROLLER
+  // ==========================================================================
+  function isCheckoutActive() {
+    const checkoutModal = document.getElementById('pix-checkout-modal');
+    return !!(checkoutModal && checkoutModal.classList.contains('active'));
+  }
+  window.isCheckoutActive = isCheckoutActive;
+
+  function isPostPaymentActive() {
+    const postModal = document.getElementById('post-donation-modal');
+    return !!(postModal && postModal.classList.contains('active')) || sessionStorage.getItem('vk_donation_completed') === '1';
+  }
+  window.isPostPaymentActive = isPostPaymentActive;
+
+  function isExitIntentActive() {
+    const exitModal = document.getElementById('vk-exit-intent-modal');
+    return !!(exitModal && exitModal.classList.contains('active'));
+  }
+  window.isExitIntentActive = isExitIntentActive;
+
+  function isCheckoutAbandoned() {
+    return sessionStorage.getItem('vk_checkout_abandoned') === '1';
+  }
+  window.isCheckoutAbandoned = isCheckoutAbandoned;
+
+  function showCheckoutRecoveryCard() {
+    // Priority 1: checkout or post-payment active -> no mini-card
+    if (isCheckoutActive() || isPostPaymentActive()) return;
+    if (sessionStorage.getItem('vk_donation_completed') === '1') return;
+    if (sessionStorage.getItem('vk_recovery_dismissed') === '1') return;
+    if (isExitIntentActive()) return;
+
+    // Priority 2: checkout abandonment has priority over normal minicard
+    hideNormalMinicard();
+
+    const recoveryCard = document.getElementById('vk-checkout-recovery-card');
+    if (recoveryCard) {
+      const recAmtEl = document.getElementById('recovery-amount-val');
+      if (recAmtEl && currentActivePaymentAmount) {
+        recAmtEl.textContent = formatBRL(currentActivePaymentAmount);
+      }
+      recoveryCard.classList.add('show');
+      recoveryCard.setAttribute('aria-hidden', 'false');
+    }
+  }
+  window.showCheckoutRecoveryCard = showCheckoutRecoveryCard;
+
+  function handleCheckoutClosed() {
+    if (sessionStorage.getItem('vk_donation_completed') !== '1') {
+      sessionStorage.setItem('vk_checkout_abandoned', '1');
+      closeModal('pix-checkout-modal');
+      showCheckoutRecoveryCard();
+    }
+  }
+  window.handleCheckoutClosed = handleCheckoutClosed;
+
+  function tryShowNormalMinicard() {
+    // Priority 1: checkout / post-payment active -> no mini-card
+    if (isCheckoutActive() || isPostPaymentActive()) return;
+    if (sessionStorage.getItem('vk_donation_completed') === '1') return;
+
+    // Priority 2: checkout abandonment has priority over normal minicard
+    if (isCheckoutAbandoned() && sessionStorage.getItem('vk_recovery_dismissed') !== '1') {
+      showCheckoutRecoveryCard();
+      return;
+    }
+
+    // Priority 3: exit intent has priority over normal minicard
+    if (isExitIntentActive()) return;
+
+    // Any modal active?
+    if (document.querySelector('.vk-modal-backdrop.active')) return;
+
+    // Dismissed in current session?
+    if (sessionStorage.getItem('vk_minicard_dismissed') === '1') return;
+
+    // Priority 4: Normal navigation -> show normal lateral mini-card
+    const floatingMinicard = document.getElementById('vk-floating-minicard');
+    if (floatingMinicard) {
+      floatingMinicard.classList.add('show');
+      floatingMinicard.setAttribute('aria-hidden', 'false');
+    }
+  }
+  window.tryShowNormalMinicard = tryShowNormalMinicard;
+
+  // Schedule normal minicard after 5 seconds (between 4 and 6 seconds)
+  setTimeout(() => {
+    tryShowNormalMinicard();
+  }, 5000);
+
+  // Normal minicard listeners
+  const floatingMinicard = document.getElementById('vk-floating-minicard');
+  const minicardCloseBtn = document.getElementById('vk-minicard-close-btn');
+
+  if (minicardCloseBtn) {
+    minicardCloseBtn.addEventListener('click', () => {
+      hideNormalMinicard();
+      sessionStorage.setItem('vk_minicard_dismissed', '1');
+    });
+  }
+
+  const minicardDonateBtn = document.querySelector('#vk-floating-minicard [data-action="donate"]');
+  if (minicardDonateBtn) {
+    minicardDonateBtn.addEventListener('click', () => {
+      hideNormalMinicard();
+      sessionStorage.setItem('vk_minicard_dismissed', '1');
+      openModal('donate-modal');
+    });
+  }
+
+  // Recovery card listeners
+  const recoveryCloseBtn = document.getElementById('vk-recovery-close-btn');
+  if (recoveryCloseBtn) {
+    recoveryCloseBtn.addEventListener('click', () => {
+      hideCheckoutRecoveryCard();
+      sessionStorage.setItem('vk_recovery_dismissed', '1');
+    });
+  }
+
+  const recoveryResumeBtn = document.getElementById('vk-recovery-resume-btn');
+  if (recoveryResumeBtn) {
+    recoveryResumeBtn.addEventListener('click', () => {
+      hideCheckoutRecoveryCard();
+      openModal('pix-checkout-modal');
+      if (currentActivePaymentId && !activePollingTimer) {
+        startPixPolling(currentActivePaymentId, currentActivePaymentType, currentActivePaymentAmount, currentActivePaymentOnSuccess);
+      }
+    });
+  }
+
+  // ==========================================================================
+  // 7. CRO: DESKTOP EXIT-INTENT TRIGGER (MOUSELEAVE TOP <= 15PX)
+  // ==========================================================================
+  const exitIntentModal = document.getElementById('vk-exit-intent-modal');
+  const exitIntentDonateBtn = document.getElementById('exit-intent-donate-btn');
+  const exitIntentDismissBtn = document.getElementById('exit-intent-dismiss-btn');
+
+  if (exitIntentModal) {
+    function handleExitIntent(e) {
+      if (window.innerWidth >= 992 && e.clientY <= 15) {
+        const isShown = sessionStorage.getItem('vk_exit_intent_shown') === '1';
+        const hasDonated = sessionStorage.getItem('vk_donation_completed') === '1';
+        const hasActiveModal = document.querySelector('.vk-modal-backdrop.active');
+
+        if (!isShown && !hasDonated && !hasActiveModal) {
+          sessionStorage.setItem('vk_exit_intent_shown', '1');
+          document.removeEventListener('mouseleave', handleExitIntent);
+          // Priority 3: Exit-intent has priority over lateral mini-cards
+          hideNormalMinicard();
+          hideCheckoutRecoveryCard();
+          exitIntentModal.classList.add('active');
+          exitIntentModal.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+        }
+      }
+    }
+
+    if (sessionStorage.getItem('vk_exit_intent_shown') !== '1') {
+      document.addEventListener('mouseleave', handleExitIntent);
+    }
+
+    if (exitIntentDonateBtn) {
+      exitIntentDonateBtn.addEventListener('click', () => {
+        exitIntentModal.classList.remove('active');
+        exitIntentModal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        openModal('donate-modal');
+      });
+    }
+
+    if (exitIntentDismissBtn) {
+      exitIntentDismissBtn.addEventListener('click', () => {
+        exitIntentModal.classList.remove('active');
+        exitIntentModal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      });
+    }
+
+    exitIntentModal.addEventListener('click', (e) => {
+      if (e.target === exitIntentModal) {
+        exitIntentModal.classList.remove('active');
+        exitIntentModal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+    });
+  }
+
+  // ==========================================================================
+  // 8. CRO: MOBILE STICKY BOTTOM CTA BAR (IntersectionObserver)
+  // ==========================================================================
+  const mobileStickyBar = document.getElementById('vk-mobile-sticky-bar');
+  const mainCtaButton = document.querySelector('.vk-cta-premium') || document.querySelector('[data-action="donate"].fhXXgM');
+
+  if (mobileStickyBar && mainCtaButton && 'IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) {
+          if (window.innerWidth <= 768) {
+            mobileStickyBar.classList.add('visible');
+            mobileStickyBar.setAttribute('aria-hidden', 'false');
+          }
+        } else {
+          mobileStickyBar.classList.remove('visible');
+          mobileStickyBar.setAttribute('aria-hidden', 'true');
+        }
+      });
+    }, {
+      threshold: 0.1
+    });
+
+    observer.observe(mainCtaButton);
+
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 768) {
+        mobileStickyBar.classList.remove('visible');
+        mobileStickyBar.setAttribute('aria-hidden', 'true');
+      }
+    });
+
+    const stickyDonateBtn = mobileStickyBar.querySelector('[data-action="donate"]');
+    if (stickyDonateBtn) {
+      stickyDonateBtn.addEventListener('click', () => {
+        openModal('donate-modal');
+      });
+    }
+  }
+
+  // --- Header Elevation on Scroll ---
+  const headerContainer = document.querySelector('.kAWgrd');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 10) {
+      if (headerContainer) headerContainer.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.08)';
+    } else {
+      if (headerContainer) headerContainer.style.boxShadow = 'none';
+    }
+  });
+});
