@@ -259,6 +259,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function openModal(modalId) {
     hideNormalMinicard();
     hideCheckoutRecoveryCard();
+    if (modalId === 'donate-modal' && typeof goToDonateStep === 'function') {
+      goToDonateStep(1);
+    }
     const modal = document.getElementById(modalId);
     if (modal) {
       modal.classList.add('active');
@@ -515,6 +518,131 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // =========================================================================
+  // 2-STEP DONATION MODAL CONTROLLER
+  // ==========================================================================
+  const donateStep1 = document.getElementById('donate-step-1');
+  const donateStep2 = document.getElementById('donate-step-2');
+  const donateStep1NextBtn = document.getElementById('donate-step1-next-btn');
+  const donateStep2BackBtn = document.getElementById('donate-step2-back-btn');
+  const donateStep2EditBtn = document.getElementById('donate-step2-edit-amount-btn');
+  const donateStepBadge = document.getElementById('donate-step-badge');
+  const dotStep1 = document.getElementById('dot-step-1');
+  const lineStep12 = document.getElementById('line-step-1-2');
+  const dotStep2 = document.getElementById('dot-step-2');
+  const donateStep2AmountDisplay = document.getElementById('donate-step2-amount-display');
+
+  function getSelectedDonationAmount() {
+    let amount = 33.42;
+    if (customAmountInput) {
+      let clean = customAmountInput.value.replace(/[^\d,.-]/g, '');
+      if (clean.includes(',')) {
+        clean = clean.replace(/\./g, '').replace(',', '.');
+      }
+      const parsed = parseFloat(clean);
+      if (!isNaN(parsed) && parsed > 0) {
+        amount = Math.min(parsed, 1000.0);
+      }
+    }
+    return amount;
+  }
+  window.getSelectedDonationAmount = getSelectedDonationAmount;
+
+  function goToDonateStep(stepNum) {
+    const modalBody = document.querySelector('.vk-donate-modal-body') || document.querySelector('.vk-modal-body');
+    if (stepNum === 1) {
+      if (donateStep1) donateStep1.style.display = 'block';
+      if (donateStep2) donateStep2.style.display = 'none';
+      if (donateStep2BackBtn) donateStep2BackBtn.style.display = 'none';
+      if (donateStepBadge) donateStepBadge.textContent = 'Etapa 1 de 2';
+      if (dotStep1) dotStep1.classList.add('active');
+      if (lineStep12) lineStep12.classList.remove('active');
+      if (dotStep2) dotStep2.classList.remove('active');
+      if (modalBody) modalBody.scrollTop = 0;
+    } else if (stepNum === 2) {
+      const amt = getSelectedDonationAmount();
+      if (donateStep2AmountDisplay) {
+        donateStep2AmountDisplay.textContent = formatBRL(amt);
+      }
+      if (donateStep1) donateStep1.style.display = 'none';
+      if (donateStep2) donateStep2.style.display = 'block';
+      if (donateStep2BackBtn) donateStep2BackBtn.style.display = 'inline-flex';
+      if (donateStepBadge) donateStepBadge.textContent = 'Etapa 2 de 2';
+      if (dotStep1) dotStep1.classList.add('active');
+      if (lineStep12) lineStep12.classList.add('active');
+      if (dotStep2) dotStep2.classList.add('active');
+      if (modalBody) modalBody.scrollTop = 0;
+      // Proactively clear previous validation error if any
+      const err = document.getElementById('donor-form-error');
+      if (err) { err.style.display = 'none'; err.textContent = ''; }
+      setTimeout(() => {
+        const nameInput = document.getElementById('donor-name');
+        if (nameInput && !nameInput.value) {
+          nameInput.focus();
+        }
+      }, 120);
+    }
+  }
+  window.goToDonateStep = goToDonateStep;
+
+  if (donateStep1NextBtn) {
+    donateStep1NextBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      goToDonateStep(2);
+    });
+  }
+
+  if (donateStep2BackBtn) {
+    donateStep2BackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      goToDonateStep(1);
+    });
+  }
+
+  if (donateStep2EditBtn) {
+    donateStep2EditBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      goToDonateStep(1);
+    });
+  }
+
+  // Modern Anonymous Contribution Checkbox / Switch
+  const anonCard = document.getElementById('anonymous-toggle-card');
+  let isAnonymousChecked = false;
+  try {
+    isAnonymousChecked = localStorage.getItem('vk_is_anonymous') === '1';
+  } catch (_) {}
+
+  function updateAnonUI(checked) {
+    if (!anonCard) return;
+    isAnonymousChecked = checked;
+    anonCard.setAttribute('aria-checked', checked ? 'true' : 'false');
+    const badge = anonCard.querySelector('.vk-anon-badge');
+    if (checked) {
+      anonCard.classList.add('checked');
+      if (badge) badge.style.display = 'inline-flex';
+    } else {
+      anonCard.classList.remove('checked');
+      if (badge) badge.style.display = 'none';
+    }
+    try {
+      localStorage.setItem('vk_is_anonymous', checked ? '1' : '0');
+    } catch (_) {}
+  }
+
+  if (anonCard) {
+    updateAnonUI(isAnonymousChecked);
+    anonCard.addEventListener('click', () => {
+      updateAnonUI(!isAnonymousChecked);
+    });
+    anonCard.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        updateAnonUI(!isAnonymousChecked);
+      }
+    });
+  }
+
+    // =========================================================================
   // BLACKCAT PIX PAYMENT CONTROLLER
   // ==========================================================================
   let activePollingTimer = null;
@@ -906,19 +1034,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const originalText = confirmDonateBtn.textContent;
       confirmDonateBtn.textContent = 'Gerando Pix...';
 
-      let amount = 33.42;
-      if (customAmountInput) {
-        let clean = customAmountInput.value.replace(/[^\d,.-]/g, '');
-        if (clean.includes(',')) {
-          clean = clean.replace(/\./g, '').replace(',', '.');
-        }
-        const parsed = parseFloat(clean);
-        if (!isNaN(parsed) && parsed > 0) {
-          amount = Math.min(parsed, 1000.0);
-        }
-      }
+      const amount = getSelectedDonationAmount();
 
       closeModal('donate-modal');
+      goToDonateStep(1); // Reset for next time
       confirmDonateBtn.disabled = false;
       confirmDonateBtn.textContent = originalText;
 
