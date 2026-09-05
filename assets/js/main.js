@@ -390,9 +390,9 @@ document.addEventListener('DOMContentLoaded', () => {
       remainingTextEl.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="#f59e0b" stroke="#d97706" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;display:inline-block;margin-right:4px"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg> <strong>Meta alcançada!</strong> Obrigado a todos os apoiadores!`;
     } else if (remainingTextEl) {
       if (pct >= 90) {
-        remainingTextEl.innerHTML = `Falta muito pouco: Só <strong class="vk-urgency-val" id="goal-remaining-val">${formatBRL(remaining)}</strong> para completar a meta`;
+        remainingTextEl.innerHTML = `Faltam só <strong class="vk-urgency-val" id="goal-remaining-val">${formatBRL(remaining)}</strong> para a meta`;
       } else {
-        remainingTextEl.innerHTML = `Faltam <strong class="vk-urgency-val" id="goal-remaining-val">${formatBRL(remaining)}</strong> para atingir a meta`;
+        remainingTextEl.innerHTML = `Faltam <strong class="vk-urgency-val" id="goal-remaining-val">${formatBRL(remaining)}</strong> para a meta`;
       }
     } else if (remainingEl) {
       remainingEl.textContent = formatBRL(remaining);
@@ -1359,21 +1359,34 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================================================
-  // 8. CRO: MOBILE STICKY BOTTOM CTA BAR
+  // 8. CRO: MOBILE STICKY BOTTOM CTA BAR (INTERSECTION & SCROLL POSITION AWARE)
   // ==========================================================================
   const mobileStickyBar = document.getElementById('vk-mobile-sticky-bar');
+  const inPageMainCtaBtn = document.querySelector('.vk-cta-premium');
 
   if (mobileStickyBar) {
+    function hasScrolledPastMainBtn() {
+      if (!inPageMainCtaBtn) return false;
+      const rect = inPageMainCtaBtn.getBoundingClientRect();
+      // Considered scrolled past when the button has scrolled completely above the viewport
+      return rect.bottom <= 50;
+    }
+
     function updateMobileStickyState() {
       if (window.innerWidth <= 768) {
-        // Hide if any modal, checkout, exit intent or mobile burger menu is open
-        const isAnyModalOpen = document.querySelector('.vk-modal-backdrop.active, .vk-post-donation-backdrop.active, .vk-exit-intent-backdrop.active, .bm-menu-wrap.open');
-        if (isAnyModalOpen) {
-          mobileStickyBar.classList.remove('visible');
-          mobileStickyBar.setAttribute('aria-hidden', 'true');
-        } else {
+        const isAnyModalOpen = document.querySelector(
+          '.vk-modal-backdrop.active, .vk-post-donation-backdrop.active, .vk-exit-intent-backdrop.active, .bm-menu-wrap.open'
+        );
+
+        // Sticky bar ONLY appears after user scrolls past the main button and no modal is open
+        const shouldShow = hasScrolledPastMainBtn() && !isAnyModalOpen;
+
+        if (shouldShow) {
           mobileStickyBar.classList.add('visible');
           mobileStickyBar.setAttribute('aria-hidden', 'false');
+        } else {
+          mobileStickyBar.classList.remove('visible');
+          mobileStickyBar.setAttribute('aria-hidden', 'true');
         }
       } else {
         mobileStickyBar.classList.remove('visible');
@@ -1382,9 +1395,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.updateMobileStickyState = updateMobileStickyState;
 
+    if ('IntersectionObserver' in window && inPageMainCtaBtn) {
+      const ctaObserver = new IntersectionObserver(() => {
+        updateMobileStickyState();
+      }, {
+        threshold: [0, 0.1, 0.5, 1.0]
+      });
+      ctaObserver.observe(inPageMainCtaBtn);
+    }
+
     window.addEventListener('scroll', updateMobileStickyState, { passive: true });
     window.addEventListener('resize', updateMobileStickyState);
-    setTimeout(updateMobileStickyState, 200);
+    setTimeout(updateMobileStickyState, 150);
 
     const stickyDonateBtn = mobileStickyBar.querySelector('[data-action="donate"]');
     if (stickyDonateBtn) {

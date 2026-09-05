@@ -433,107 +433,90 @@
                   <div class="sc-dhKdcB fqsqHI vk-goal-section">
                     <!-- 1. Amount Raised & Percent Header -->
                     <div class="vk-goal-header">
-                      <div>
-                        <div class="sc-fqkvVR dXzKpF sc-a407dab4-0 iGcqXy">Arrecadado</div>
-                        <div class="sc-fqkvVR kWIkzW" id="raised-amount-val">R$ 1.466,58</div>
+                      <div class="vk-goal-raised-block">
+                        <span class="vk-goal-raised-label">Arrecadado</span>
+                        <div class="vk-goal-raised-amount" id="raised-amount-val">R$ 1.466,58</div>
                       </div>
-                      <div class="vk-goal-meta-badge">
-                        <span id="goal-progress-percent" class="vk-goal-pct">98%</span>
-                        <div class="sc-fqkvVR ewoObz" id="goal-meta-val">de R$ 1.500,00</div>
+                      <div class="vk-goal-meta-block">
+                        <span id="goal-progress-percent" class="vk-goal-pct-pill">98%</span>
+                        <span class="vk-goal-meta-amount" id="goal-meta-val">meta de R$ 1.500,00</span>
                       </div>
                     </div>
 
-                    <!-- 2. Emotional Progress Bar (Animates 0 -> 98%) -->
+                    <!-- 2. Sleek Progress Bar -->
                     <div class="vk-progress-track">
                       <div class="vk-progress-fill" id="goal-progress-fill" style="width: 0%;">
                         <div class="vk-progress-shine"></div>
                       </div>
                     </div>
 
-                    <!-- 3. Dynamic Urgency Banner (Directly Above CTA) -->
-                    <div class="vk-urgency-card" id="goal-remaining-card">
-                      <div class="vk-urgency-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-                        </svg>
-                      </div>
-                      <div class="vk-urgency-text" id="goal-remaining-text">
-                        Falta muito pouco: Só <strong class="vk-urgency-val" id="goal-remaining-val">R$ 33,42</strong> para completar a meta
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 4. High-Impact Coral CTA Button -->
-                  <div style="margin-top: 10px; width: 100%;">
-                    <button type="button" class="sc-fPXMVe fhXXgM vk-cta-premium" data-action="donate" title="Quero ajudar agora">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#ffffff" style="flex-shrink:0">
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    <!-- 3. Compact Urgency Alert -->
+                    <div class="vk-urgency-compact" id="goal-remaining-card">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="vk-urgency-mini-icon">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
                       </svg>
-                      <div class="sc-fqkvVR hXGXXh" data-cy="campaign-toolbar">Quero ajudar agora</div>
+                      <span class="vk-urgency-compact-text" id="goal-remaining-text">
+                        Faltam só <strong class="vk-urgency-val" id="goal-remaining-val">R$ 33,42</strong> para a meta
+                      </span>
+                    </div>
+
+                    <!-- 4. In-Page Main CTA Button (Quero ajudar - Single Line) -->
+                    <div class="vk-cta-container">
+                      <button type="button" class="sc-fPXMVe fhXXgM vk-cta-premium" data-action="donate" title="Quero ajudar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#ffffff" style="flex-shrink:0">
+                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                        </svg>
+                        <span>Quero ajudar</span>
+                      </button>
+                    </div>
+
+                    <!-- 5. Simplified Pix Trust Items (3 Visual Checks) & Integrated Security Seal -->
+                    <div class="vk-trust-summary">
+                      <div class="vk-pix-checks">
+                        <div class="vk-pix-check-item">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#009d4e" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          <span>Escolha o valor</span>
+                        </div>
+                        <div class="vk-pix-check-item">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#009d4e" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          <span>Pagamento via Pix</span>
+                        </div>
+                        <div class="vk-pix-check-item">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#009d4e" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          <span>Confirmação automática</span>
+                        </div>
+                      </div>
+                      <div class="vk-protected-seal-integrated">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="#009d4e" style="flex-shrink:0"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+                        <span>Doação protegida e auditada</span>
+                      </div>
+                    </div>
+
+                    <!-- 6. Compact Social Proof Grid (Hearts & Donors) -->
+                    <div class="vk-social-mini-grid">
+                      <div class="vk-social-mini-card">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="#ef4444" style="flex-shrink:0"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                        <span class="vk-social-mini-num" id="heart-count-value">68</span>
+                        <span class="vk-social-mini-label">corações</span>
+                      </div>
+                      <div class="vk-social-mini-card">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="#0284c7" style="flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        <span class="vk-social-mini-num" id="donor-count-val">51</span>
+                        <span class="vk-social-mini-label">apoiadores</span>
+                      </div>
+                    </div>
+                    <div class="vk-social-quote-mini">
+                      “Dezenas de pessoas já fizeram parte dessa corrente solidária.”
+                    </div>
+
+                    <!-- 7. Secondary Outline Share Button -->
+                    <button type="button" class="vk-share-btn-secondary" data-action="share" title="Compartilhar vaquinha">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                      </svg>
+                      <span>Compartilhar vaquinha</span>
                     </button>
-                    <!-- 5. Frictionless Subtext -->
-                    <div class="vk-cta-subtext">
-                      Leva menos de 1 minuto via Pix
-                    </div>
-                  </div>
-
-                  <!-- 6. Trust & Friction Reduction Microcopies (3 Guarantees + Confirmation Note) -->
-                  <div class="vk-microcopy-block">
-                    <div class="vk-microcopy-row">
-                      <span class="vk-microcopy-item">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                        Você escolhe o valor
-                      </span>
-                      <span class="vk-microcopy-dot">•</span>
-                      <span class="vk-microcopy-item">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        Pix seguro
-                      </span>
-                      <span class="vk-microcopy-dot">•</span>
-                      <span class="vk-microcopy-item">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        Menos de 1 min
-                      </span>
-                    </div>
-                    <div class="vk-microcopy-note">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="#10b981"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                      Confirmação automática após o pagamento
-                    </div>
-                  </div>
-
-                  <!-- 7. Doador Protegido Shield Badge (Positioned directly under microcopies) -->
-                  <div class="vk-protected-seal-wrap">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="130" height="28" fill="none" viewBox="0 0 130 28"><path fill="#EEFFE6" stroke="#009D4E" stroke-width="0.75" d="M122.398 3.375a7.227 7.227 0 0 1 7.227 7.227v6.796a7.227 7.227 0 0 1-7.227 7.227H8.375V3.375z"></path><path fill="#009D4E" d="M14.087.236a.7.7 0 0 1 .748 0l.515.326a.7.7 0 0 0 .636.057l.564-.228a.7.7 0 0 1 .736.133l.449.412a.7.7 0 0 0 .616.17l.596-.123a.7.7 0 0 1 .7.262l.368.486a.7.7 0 0 0 .575.277l.61-.015a.7.7 0 0 1 .641.383l.275.544a.7.7 0 0 0 .517.375l.602.094a.7.7 0 0 1 .563.492l.174.584a.7.7 0 0 0 .441.462l.576.2a.7.7 0 0 1 .466.584l.067.605a.7.7 0 0 0 .352.533l.53.3a.7.7 0 0 1 .354.658l-.042.608a.7.7 0 0 0 .25.587l.47.39a.7.7 0 0 1 .23.71l-.15.59a.7.7 0 0 0 .142.624l.392.466a.7.7 0 0 1 .1.741l-.253.554a.7.7 0 0 0 .029.638l.302.529a.7.7 0 0 1-.034.747l-.348.5a.7.7 0 0 0-.086.633l.203.574a.7.7 0 0 1-.167.73l-.431.429a.7.7 0 0 0-.198.607l.097.602a.7.7 0 0 1-.294.687l-.502.346a.7.7 0 0 0-.302.562l-.012.61a.7.7 0 0 1-.412.624l-.555.25a.7.7 0 0 0-.399.5l-.12.596a.7.7 0 0 1-.517.54l-.591.148a.7.7 0 0 0-.481.42l-.225.566a.7.7 0 0 1-.606.44l-.607.04a.7.7 0 0 0-.549.327l-.322.516a.7.7 0 0 1-.674.325l-.605-.07a.7.7 0 0 0-.598.225l-.41.45a.7.7 0 0 1-.721.2l-.583-.178a.7.7 0 0 0-.628.114l-.484.37a.7.7 0 0 1-.745.068l-.542-.278a.7.7 0 0 0-.638 0l-.542.278a.7.7 0 0 1-.745-.067l-.484-.37a.7.7 0 0 0-.628-.115l-.583.177a.7.7 0 0 1-.721-.199l-.41-.45a.7.7 0 0 0-.598-.225l-.605.07a.7.7 0 0 1-.674-.325l-.322-.516a.7.7 0 0 0-.549-.328l-.608-.04a.7.7 0 0 1-.605-.439l-.225-.566a.7.7 0 0 0-.481-.42l-.59-.147a.7.7 0 0 1-.518-.54l-.12-.598a.7.7 0 0 0-.399-.5l-.555-.25a.7.7 0 0 1-.412-.624l-.012-.609a.7.7 0 0 0-.303-.562l-.501-.346a.7.7 0 0 1-.294-.687l.097-.602a.7.7 0 0 0-.198-.607l-.431-.43a.7.7 0 0 1-.167-.729l.203-.574a.7.7 0 0 0-.086-.633l-.348-.5a.7.7 0 0 1-.034-.747l.302-.529a.7.7 0 0 0 .029-.638l-.253-.554a.7.7 0 0 1 .1-.741l.392-.466a.7.7 0 0 0 .142-.623l-.15-.59a.7.7 0 0 1 .23-.712l.469-.389a.7.7 0 0 0 .251-.587l-.042-.608a.7.7 0 0 1 .354-.658l.53-.3a.7.7 0 0 0 .352-.533l.067-.605a.7.7 0 0 1 .466-.585l.576-.2a.7.7 0 0 0 .441-.461l.174-.584a.7.7 0 0 1 .563-.492l.602-.094a.7.7 0 0 0 .517-.375l.275-.544a.7.7 0 0 1 .642-.383l.608.015a.7.7 0 0 0 .576-.277l.368-.486a.7.7 0 0 1 .7-.262l.596.123a.7.7 0 0 0 .616-.17l.448-.412a.7.7 0 0 1 .736-.133l.565.228a.7.7 0 0 0 .636-.057z"></path><path fill="#025432" stroke="#fff" stroke-width="0.35" d="M14.46 3.675c5.702 0 10.325 4.623 10.325 10.325S20.162 24.325 14.46 24.325 4.135 19.702 4.135 14 8.758 3.675 14.46 3.675Z"></path><path fill="#EEFFE6" d="M14.46 7.583 9.21 9.917v3.5c0 3.237 2.24 6.265 5.25 7 3.01-.735 5.25-3.763 5.25-7v-3.5zm0 6.411h4.084c-.309 2.404-1.913 4.544-4.083 5.215V14h-4.083v-3.325l4.083-1.814z"></path><path fill="#025432" d="M40.24 14.108q0 .636-.211 1.168-.212.532-.596.916a2.7 2.7 0 0 1-.924.596q-.54.212-1.2.212h-2.204v-5.784h2.204q.66 0 1.2.216.54.212.924.596.384.38.596.912t.212 1.168m-1.103 0q0-.476-.128-.852a1.7 1.7 0 0 0-.364-.64 1.55 1.55 0 0 0-.576-.404 2 2 0 0 0-.76-.14h-1.124v4.072h1.124q.424 0 .76-.14.34-.14.576-.4.24-.264.364-.64.128-.38.128-.856m7.97 0q0 .636-.212 1.18-.208.54-.592.936-.384.395-.924.62-.54.22-1.2.22-.656 0-1.196-.22-.54-.224-.928-.62a2.8 2.8 0 0 1-.596-.936 3.2 3.2 0 0 1-.212-1.18q0-.636.212-1.176.212-.544.596-.94.388-.396.928-.616.54-.225 1.196-.224.44 0 .828.104.388.1.712.288.325.184.58.452.26.264.44.592t.272.712q.096.384.096.808m-1.1 0q0-.476-.128-.852a1.8 1.8 0 0 0-.364-.644 1.56 1.56 0 0 0-.576-.404 2 2 0 0 0-.76-.14 2 2 0 0 0-.764.14 1.6 1.6 0 0 0-.576.404q-.236.264-.364.644-.129.376-.128.852 0 .476.128.856.127.376.364.64.24.26.576.4.34.14.764.14t.76-.14q.34-.14.576-.4.236-.264.364-.64.128-.38.128-.856m5.321.708-.704-1.924a4 4 0 0 1-.108-.304 10 10 0 0 1-.112-.38q-.052.204-.108.384-.055.176-.108.308l-.7 1.916zm1.9 2.184h-.832a.36.36 0 0 1-.228-.068.45.45 0 0 1-.132-.176l-.432-1.18h-2.396l-.432 1.18a.4.4 0 0 1-.124.168.35.35 0 0 1-.228.076h-.84l2.276-5.784h1.096zm5.379-.836a2.3 2.3 0 0 1-.768.624q-.452.225-1.068.268l-.052.188q.376.088.528.236a.5.5 0 0 1 .152.36.43.43 0 0 1-.072.244.56.56 0 0 1-.2.184q-.128.076-.308.116t-.396.04q-.165 0-.308-.024a2 2 0 0 1-.28-.064l.092-.308q.024-.092.116-.092a.3.3 0 0 1 .12.028q.067.032.196.032.132 0 .196-.052.068-.048.068-.12 0-.116-.144-.168a3 3 0 0 0-.444-.092l.176-.512a2.8 2.8 0 0 1-1.04-.288 2.5 2.5 0 0 1-.784-.628 2.8 2.8 0 0 1-.496-.904 3.5 3.5 0 0 1-.172-1.124q0-.652.208-1.192.208-.544.584-.936a2.65 2.65 0 0 1 .904-.608q.524-.22 1.16-.22.632 0 1.12.208.492.208.836.544l-.36.5a.3.3 0 0 1-.084.084.22.22 0 0 1-.136.036.3.3 0 0 1-.124-.032 3 3 0 0 1-.14-.084 4 4 0 0 0-.176-.112 1.642 1.642 0 0 0-.54-.192 2 2 0 0 0-.4-.036q-.388 0-.712.14-.32.135-.552.4a1.8 1.8 0 0 0-.36.64q-.128.375-.128.86 0 .488.136.868.14.38.376.64a1.62 1.62 0 0 0 1.244.536q.22 0 .396-.024.18-.024.328-.076.152-.053.284-.132.136-.084.268-.204a.3.3 0 0 1 .084-.056.2.2 0 0 1 .092-.024q.088 0 .156.068zm4.193-1.348-.704-1.924a4 4 0 0 1-.108-.304 10 10 0 0 1-.112-.38q-.052.204-.108.384-.055.176-.108.308l-.7 1.916zM64.7 17h-.832a.36.36 0 0 1-.228-.068.45.45 0 0 1-.132-.176l-.432-1.18H60.68l-.432 1.18a.4.4 0 0 1-.124.168.35.35 0 0 1-.228.076h-.84l2.276-5.784h1.096zm-2.324-6.796q.089 0 .152-.036a.3.3 0 0 0 .108-.088.4.4 0 0 0 .064-.12.5.5 0 0 0 .02-.132h.604q0 .2-.056.384a1 1 0 0 1-.16.324.8.8 0 0 1-.26.224.7.7 0 0 1-.352.084.9.9 0 0 1-.356-.064 3 3 0 0 1-.272-.136l-.228-.14a.4.4 0 0 0-.208-.064.3.3 0 0 0-.156.036.3.3 0 0 0-.104.092.468.468 0 0 0-.08.256h-.612q0-.195.056-.38.055-.188.16-.328a.8.8 0 0 1 .26-.228.7.7 0 0 1 .356-.088q.204 0 .356.064.152.065.272.14l.224.136a.4.4 0 0 0 .212.064m8.667 3.904q0 .636-.212 1.18-.208.54-.592.936-.384.395-.924.62-.54.22-1.2.22-.656 0-1.196-.22-.54-.224-.928-.62a2.8 2.8 0 0 1-.596-.936 3.2 3.2 0 0 1-.212-1.18q0-.636.212-1.176.212-.544.596-.94.387-.396.928-.616.54-.225 1.196-.224.44 0 .828.104.387.1.712.288.325.184.58.452.26.264.44.592t.272.712q.096.384.096.808m-1.1 0q0-.476-.128-.852a1.8 1.8 0 0 0-.364-.644 1.55 1.55 0 0 0-.576-.404 2 2 0 0 0-.76-.14q-.424 0-.764.14a1.6 1.6 0 0 0-.576.404q-.236.264-.364.644-.128.376-.128.852t.128.856q.128.376.364.64.24.26.576.4.34.14.764.14t.76-.14q.34-.14.576-.4.236-.264.364-.64.128-.38.128-.856m6.67.016q.296 0 .516-.072a1 1 0 0 0 .364-.212.9.9 0 0 0 .22-.336q.072-.2.072-.444 0-.232-.072-.42a.8.8 0 0 0-.216-.32.94.94 0 0 0-.364-.2 1.7 1.7 0 0 0-.52-.072h-.804v2.076zm0-2.908a3.3 3.3 0 0 1 1.004.136q.424.135.7.38.276.244.408.584.136.34.136.744 0 .42-.14.772a1.6 1.6 0 0 1-.42.6 1.95 1.95 0 0 1-.704.392q-.42.14-.984.14h-.804V17h-1.076v-5.784zm5.221 2.752q.305 0 .528-.076.228-.075.372-.208a.85.85 0 0 0 .22-.32 1.1 1.1 0 0 0 .072-.404q0-.44-.292-.676-.288-.236-.884-.236h-.688v1.92zM84.602 17h-.972q-.276 0-.4-.216l-1.216-1.852a.4.4 0 0 0-.152-.148.5.5 0 0 0-.24-.044h-.46V17h-1.076v-5.784h1.764q.588 0 1.008.124.424.12.692.34.272.22.4.528.128.304.128.672 0 .292-.088.552-.084.26-.248.472-.16.212-.4.372-.235.16-.54.252.104.06.192.144a1 1 0 0 1 .16.192zm6.463-2.892q0 .636-.212 1.18-.208.54-.592.936-.384.395-.924.62-.54.22-1.2.22-.657 0-1.196-.22-.54-.224-.928-.62a2.8 2.8 0 0 1-.596-.936 3.2 3.2 0 0 1-.212-1.18q0-.636.212-1.176.212-.544.596-.94.388-.396.928-.616.54-.225 1.196-.224.44 0 .828.104.388.1.712.288.324.184.58.452.26.264.44.592t.272.712q.096.384.096.808m-1.1 0q0-.476-.128-.852a1.8 1.8 0 0 0-.364-.644 1.55 1.55 0 0 0-.576-.404 2 2 0 0 0-.76-.14 2 2 0 0 0-.764.14 1.6 1.6 0 0 0-.576.404q-.237.264-.364.644-.129.376-.128.852 0 .476.128.856.127.376.364.64.24.26.576.4.34.14.764.14.423 0 .76-.14.339-.14.576-.4.235-.264.364-.64.128-.38.128-.856m6.29-2.008H94.51V17h-1.076v-4.9H91.69v-.884h4.564zm2.236-.028v1.604h2.024v.828h-2.024v1.636h2.568V17h-3.648v-5.784h3.648v.856zm8.565 2.028v2.34a3.1 3.1 0 0 1-.94.476 3.7 3.7 0 0 1-1.064.148q-.708 0-1.284-.22a2.9 2.9 0 0 1-.98-.612 2.7 2.7 0 0 1-.624-.936 3.1 3.1 0 0 1-.22-1.188q0-.652.212-1.196t.6-.936q.392-.392.948-.608t1.248-.216q.351 0 .656.056.307.056.568.156.264.096.48.236t.396.308l-.308.488a.3.3 0 0 1-.188.144.34.34 0 0 1-.252-.06l-.264-.152a1.7 1.7 0 0 0-.296-.132 2.4 2.4 0 0 0-.364-.092 2.7 2.7 0 0 0-.464-.036 2 2 0 0 0-.776.144 1.6 1.6 0 0 0-.588.412 1.9 1.9 0 0 0-.376.644q-.132.375-.132.84 0 .496.14.888.144.388.4.66.26.268.624.412.363.14.812.14.32 0 .572-.068t.492-.184v-1.048h-.728a.23.23 0 0 1-.164-.056.2.2 0 0 1-.056-.144V14.1zm2.516 2.9h-1.08v-5.784h1.08zm6.831-2.892q0 .636-.212 1.168t-.596.916a2.7 2.7 0 0 1-.924.596q-.54.212-1.2.212h-2.204v-5.784h2.204q.66 0 1.2.216.54.212.924.596.384.38.596.912.213.532.212 1.168m-1.104 0q0-.476-.128-.852a1.7 1.7 0 0 0-.364-.64 1.55 1.55 0 0 0-.576-.404 2 2 0 0 0-.76-.14h-1.124v4.072h1.124q.424 0 .76-.14.34-.14.576-.4.24-.264.364-.64.129-.38.128-.856m5.331.708-.704-1.924a4 4 0 0 1-.108-.304 8 8 0 0 1-.112-.38 5.972 5.972 0 0 1-.216.692l-.7 1.916zm1.9 2.184h-.832a.36.36 0 0 1-.228-.068.45.45 0 0 1-.132-.176l-.432-1.18h-2.396l-.432 1.18a.4.4 0 0 1-.124.168.35.35 0 0 1-.228.076h-.84l2.276-5.784h1.096z"></path></svg>
-                  </div>
-
-                  <!-- 8. Social Proof (Hearts & Donors Cards + Authentic Statement) -->
-                  <div class="vk-social-proof-grid">
-                    <div class="vk-social-card">
-                      <div class="vk-social-card-num">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#ef4444"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                        <span id="heart-count-value">68</span>
-                      </div>
-                      <div class="vk-social-card-label">Corações recebidos</div>
-                    </div>
-                    <div class="vk-social-card">
-                      <div class="vk-social-card-num">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#0284c7"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                        <span id="donor-count-val">51</span>
-                      </div>
-                      <div class="vk-social-card-label">Apoiadores</div>
-                    </div>
-                  </div>
-                  <div class="vk-social-quote">
-                    “Dezenas de pessoas já fizeram parte dessa corrente solidária.”
-                  </div>
-
-                  <!-- 9. Secondary Compact Outline Share Button -->
-                  <button type="button" class="vk-share-btn-compact" data-action="share" title="Compartilhar vaquinha">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-                    </svg>
-                    <span>Compartilhar vaquinha</span>
-                  </button>
 
                   <div class="sc-jXbUNg dttRqJ"></div>
 
