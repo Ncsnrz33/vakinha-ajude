@@ -1,15 +1,12 @@
 """
-Vercel Serverless Function entrypoint for Vakinha Clone CaosPay API.
-Runtime: Python (BaseHTTPRequestHandler handler class).
+Vercel Serverless Function entrypoint for Vakinha SigiloPay API.
+Official API Documentation: https://app.sigilopay.com.br/docs
 """
 import sys
 import os
 import json
 import re
 import urllib.parse
-import urllib.request
-import urllib.error
-import time
 from http.server import BaseHTTPRequestHandler
 
 # Add root directory to sys.path
@@ -24,7 +21,17 @@ from database import (
     mark_payment_as_paid,
     list_payments
 )
-from server import caospay_client, USE_PAYMENT_MOCK
+from sigilopay import SigiloPayClient, SigiloPayError
+
+SIGILOPAY_CLIENT_ID = os.environ.get("SIGILOPAY_CLIENT_ID", "")
+SIGILOPAY_CLIENT_SECRET = os.environ.get("SIGILOPAY_CLIENT_SECRET", "")
+SIGILOPAY_API_URL = os.environ.get("SIGILOPAY_API_URL", "https://app.sigilopay.com.br/api/v1")
+
+sigilopay_client = SigiloPayClient(
+    public_key=SIGILOPAY_CLIENT_ID,
+    secret_key=SIGILOPAY_CLIENT_SECRET,
+    base_url=SIGILOPAY_API_URL
+)
 
 class handler(BaseHTTPRequestHandler):
     def _send_json(self, status_code, data):
@@ -74,19 +81,21 @@ class handler(BaseHTTPRequestHandler):
                     return self._send_json(400, {"success": False, "message": "Tipo de pagamento inválido."})
 
                 if pay_type == "thank_you_video":
-                    amount_cents = 899
+                    amount_reais = 8.99
                 elif pay_type == "goal_completion":
                     client_amount = float(body.get("amount", 33.42))
-                    amount_cents = round(client_amount * 100)
-                    amount_cents = min(100000, max(100, amount_cents))
+                    amount_reais = round(min(1000.0, max(1.0, client_amount)), 2)
                 else:  # donation
                     client_amount = float(body.get("amount", 25.00))
-                    amount_cents = round(client_amount * 100)
-                    if amount_cents <= 0 or amount_cents > 100000:
+                    amount_reais = round(client_amount, 2)
+                    if amount_reais < 1.0 or amount_reais > 1000.0:
                         return self._send_json(400, {"success": False, "message": "Valor de doação deve ser entre R$ 1,00 e R$ 1.000,00."})
 
-                payer_doc = re.sub(r"[^0-9]", "", str(body.get("payerDocument", body.get("payer_document", "12345678909"))))
+                amount_cents = round(amount_reais * 100)
+                payer_doc = str(body.get("payerDocument", body.get("payer_document", "111.444.777-35"))).strip()
                 payer_name = str(body.get("payerName", body.get("payer_name", "Apoiador Solidário"))).strip()
+                payer_email = str(body.get("payerEmail", body.get("payer_email", "doador@ajude-vakinha.com"))).strip()
+                payer_phone = str(body.get("payerPhone", body.get("payer_phone", "(11) 99876-5432"))).strip()
 
                 desc_map = {
                     "donation": "Doação Vaquinha Sementes do Amanhã",
@@ -94,12 +103,14 @@ class handler(BaseHTTPRequestHandler):
                     "thank_you_video": "Vídeo Especial de Agradecimento"
                 }
 
-                pix_data = caospay_client.generate(
-                    amount_cents=amount_cents,
+                pix_data = sigilopay_client.generate_pix(
+                    amount_reais=amount_reais,
                     pay_type=pay_type,
                     description=desc_map.get(pay_type, "Doação Vaquinha"),
                     payer_name=payer_name,
-                    payer_document=payer_doc
+                    payer_document=payer_doc,
+                    payer_email=payer_email,
+                    payer_phone=payer_phone
                 )
 
                 fee_reais = float(pix_data.get("fee_reais", 0.99))
@@ -115,13 +126,12 @@ class handler(BaseHTTPRequestHandler):
                     "status": "pending",
                     "payer_name": payer_name,
                     "payer_document": payer_doc,
-                    "qr_copy_paste": pix_data.get("qr_copy_paste") or pix_data.get("pixCopyPaste"),
-                    "qr_image_url": pix_data.get("qr_image_url") or pix_data.get("qr_src") or pix_data.get("qrImageUrl"),
-                    "qr_base64": pix_data.get("qr_base64") or pix_data.get("qrBase64")
+                    "qr_copy_paste": pix_data.get("pixCopyPaste"),
+                    "qr_image_url": pix_data.get("qrImageUrl"),
+                    "qr_base64": pix_data.get("qrBase64", "")
                 }
                 create_payment(db_record)
 
-                amount_reais = round(amount_cents / 100.0, 2)
                 p_info = {
                     "id": pix_data["id"],
                     "status": "pending",
@@ -149,102 +159,51 @@ class handler(BaseHTTPRequestHandler):
                 }
                 return self._send_json(200, response_data)
 
-            except urllib.error.HTTPError as e:
-                err_text = getattr(e, "custom_detail", "")
-                elapsed_ms = getattr(e, "elapsed_ms", 0)
-                tok_mode = getattr(e, "token_mode", "production")
-                tok_prefix = getattr(e, "token_prefix", "unknown")
-                upstream_url = getattr(e, "upstream_url", "https://caospayment.shop/api/pay/generate")
-
-                print(f"[Vercel Generate Error HTTP {e.code}] Upstream CaosPay in {elapsed_ms}ms: {err_text[:200]}", flush=True)
-                msg = "Não foi possível gerar o PIX agora. Tente novamente em alguns instantes."
-                if e.code == 401:
-                    msg = "Credenciais do provedor de pagamento inválidas ou expiradas."
-                elif e.code == 400:
-                    msg = "Dados inválidos para a criação do PIX. Verifique os valores informados."
-                elif e.code in [502, 503, 504]:
-                    msg = "O gateway de pagamento CaosPay está temporariamente instável (HTTP 502 da origem caospayment.shop). Tente novamente em instantes."
-
-                return self._send_json(e.code if e.code in [400, 401, 403, 422] else 502, {
+            except SigiloPayError as e:
+                print(f"[Vercel SigiloPay Error HTTP {e.status_code}] code={e.error_code} msg={e.message}", flush=True)
+                return self._send_json(e.status_code if e.status_code in [400, 401, 403, 422] else 502, {
                     "success": False,
-                    "message": msg,
-                    "error_code": e.code,
-                    "diagnostics": {
-                        "upstream_url": upstream_url,
-                        "upstream_status": e.code,
-                        "upstream_time_ms": elapsed_ms,
-                        "token_mode": tok_mode,
-                        "token_prefix": tok_prefix,
-                        "reason": str(e.reason),
-                        "upstream_snippet": err_text[:120].strip()
-                    }
+                    "message": e.message,
+                    "error_code": e.error_code,
+                    "gateway": "sigilopay",
+                    "details": e.details
                 })
             except Exception as e:
                 print(f"[Vercel Generate Error] {type(e).__name__}: {e}", flush=True)
                 return self._send_json(500, {
                     "success": False,
-                    "message": "Não foi possível gerar o PIX agora. Tente novamente em alguns instantes."
+                    "message": "Não foi possível gerar o Pix agora. Tente novamente em alguns instantes.",
+                    "gateway": "sigilopay"
                 })
 
         # -------------------------------------------------------------
-        # Route 2: Webhook CaosPay
+        # Route 2: Webhook SigiloPay
         # -------------------------------------------------------------
-        elif path == "/api/webhooks/caospay":
+        elif path == "/api/webhooks/sigilopay":
             try:
                 length = int(self.headers.get("Content-Length", 0))
                 raw_body = self.rfile.read(length).decode("utf-8")
                 hook = json.loads(raw_body) if raw_body else {}
 
-                if hook.get("transactionType") != "DEPOSITO" or hook.get("transactionMethod") != "PIX":
-                    return self._send_json(200, {"success": True, "message": "Ignored non-PIX deposit"})
+                tx_id = hook.get("id") or hook.get("transactionId") or hook.get("identifier")
+                status = str(hook.get("status") or hook.get("transactionStatus") or "").upper()
+                print(f"[Vercel SigiloPay Webhook] id={tx_id} status={status}", flush=True)
 
-                if str(hook.get("status", "")).upper() != "COMPLETO":
-                    return self._send_json(200, {"success": True, "message": "Status not COMPLETO"})
-
-                tx_id = hook.get("transactionId")
                 if not tx_id:
                     return self._send_json(400, {"success": False, "message": "transactionId missing"})
 
                 payment = get_payment_by_provider_id(tx_id)
                 if not payment:
-                    status_res = caospay_client.check_status(tx_id)
-                    if status_res.get("success") and str(status_res.get("status", "")).lower() == "paid":
-                        remote_val = float(status_res.get("value_reais", 0.0))
-                        amt_cents = round(remote_val * 100)
-                        create_payment({
-                            "provider_payment_id": tx_id,
-                            "type": "donation",
-                            "amount_cents": amt_cents,
-                            "status": "pending"
-                        })
-                        payment = get_payment_by_provider_id(tx_id)
-                    else:
-                        return self._send_json(404, {"success": False, "message": "Transaction not found"})
+                    return self._send_json(404, {"success": False, "message": "Transaction not found in db"})
 
-                if payment and payment["status"] == "paid":
+                if payment["status"] == "paid":
                     return self._send_json(200, {"success": True, "message": "Already paid (idempotent)"})
 
-                status_res = caospay_client.check_status(tx_id)
-                if not status_res.get("success"):
-                    return self._send_json(400, {"success": False, "message": "Failed to verify status with CaosPay"})
+                if status in ["COMPLETED", "PAID", "CONFIRMED", "OK"]:
+                    mark_payment_as_paid(tx_id)
+                    print(f"[Vercel SigiloPay Webhook] Marked {tx_id} as paid", flush=True)
 
-                remote_status = str(status_res.get("status", "")).lower()
-                if remote_status != "paid":
-                    return self._send_json(400, {"success": False, "message": "Status is not paid"})
-
-                remote_value_reais = float(status_res.get("value_reais", 0.0))
-                received_cents = round(remote_value_reais * 100)
-                expected_cents = int(payment["amount_cents"])
-
-                if expected_cents != received_cents:
-                    return self._send_json(400, {"success": False, "message": "Amount mismatch"})
-
-                fee_reais = float(hook.get("fee", 0.99))
-                fee_cents = round(fee_reais * 100)
-                net_cents = expected_cents - fee_cents
-
-                mark_payment_as_paid(tx_id, fee_cents=fee_cents, net_amount_cents=net_cents)
-                return self._send_json(200, {"success": True, "status": "paid"})
+                return self._send_json(200, {"success": True})
 
             except Exception as e:
                 print(f"[Vercel Webhook Error] {e}", flush=True)
@@ -256,16 +215,16 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         clean_path = self.get_clean_path()
 
-        # Health & Version check
+        # Health & Gateway Status check
         if clean_path in ["/api", "/api/health", "/api/version"]:
-            is_prod = not caospay_client.token.startswith("cpk_test_")
+            cid_prefix = sigilopay_client.public_key[:8] + "..." if sigilopay_client.public_key else "empty"
             return self._send_json(200, {
                 "status": "ok",
-                "service": "vakinha-caospay-api",
+                "service": "vakinha-sigilopay-api",
                 "environment": "vercel-serverless",
-                "token_mode": "production" if is_prod else "sandbox",
-                "token_prefix": caospay_client.token[:8] + "..." if caospay_client.token else "empty",
-                "gateway_url": caospay_client.base_url
+                "gateway": "sigilopay",
+                "client_id_prefix": cid_prefix,
+                "gateway_url": sigilopay_client.base_url
             })
 
         # Route: Payment Status Polling (GET /api/payments/<id>/status)
@@ -274,21 +233,19 @@ class handler(BaseHTTPRequestHandler):
             pid = m.group("pid")
             payment = get_payment_by_provider_id(pid)
 
-            if not payment and not USE_PAYMENT_MOCK:
+            if not payment:
                 try:
-                    remote_res = caospay_client.check_status(pid)
+                    remote_res = sigilopay_client.check_status(pid)
                     if remote_res.get("success"):
-                        remote_val = float(remote_res.get("value_reais", 0))
-                        amt_cents = round(remote_val * 100)
-                        remote_st = str(remote_res.get("status", "pending")).lower()
-                        db_record = {
+                        amt_cents = remote_res.get("amount_cents", 0)
+                        remote_st = remote_res.get("status", "pending")
+                        create_payment({
                             "provider_payment_id": pid,
                             "type": "donation",
                             "amount_cents": amt_cents,
                             "status": remote_st,
                             "paid_at": remote_res.get("paid_at")
-                        }
-                        create_payment(db_record)
+                        })
                         payment = get_payment_by_provider_id(pid)
                 except Exception as e:
                     print(f"[Vercel Status Check Error] {e}", flush=True)
@@ -296,17 +253,12 @@ class handler(BaseHTTPRequestHandler):
             if not payment:
                 return self._send_json(404, {"success": False, "message": "Payment not found"})
 
-            if payment["status"] == "pending" and not USE_PAYMENT_MOCK:
+            if payment["status"] == "pending":
                 try:
-                    remote_res = caospay_client.check_status(pid)
+                    remote_res = sigilopay_client.check_status(pid)
                     if remote_res.get("success") and remote_res.get("status") == "paid":
-                        remote_val = float(remote_res.get("value_reais", 0))
-                        received_cents = round(remote_val * 100)
-                        if received_cents == payment["amount_cents"]:
-                            fee_cents = payment.get("fee_cents") or 99
-                            net_cents = payment["amount_cents"] - fee_cents
-                            mark_payment_as_paid(pid, fee_cents=fee_cents, net_amount_cents=net_cents)
-                            payment = get_payment_by_provider_id(pid)
+                        mark_payment_as_paid(pid)
+                        payment = get_payment_by_provider_id(pid)
                 except Exception as e:
                     print(f"[Vercel Poll Status Error] {e}", flush=True)
 

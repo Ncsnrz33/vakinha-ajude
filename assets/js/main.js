@@ -514,8 +514,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ==========================================================================
-  // CAOSPAY PIX PAYMENT CONTROLLER
+  // =========================================================================
+  // SIGILOPAY PIX PAYMENT CONTROLLER
   // ==========================================================================
   let activePollingTimer = null;
   let currentActivePaymentId = null;

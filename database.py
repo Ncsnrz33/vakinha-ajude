@@ -1,5 +1,5 @@
 """
-Database access layer for Vakinha CaosPay integration using SQLite.
+Database access layer for Vakinha SigiloPay integration using SQLite.
 All monetary values are stored strictly in integer cents (e.g. R$ 25,00 -> 2500).
 """
 import sqlite3
@@ -20,16 +20,14 @@ def get_connection():
     return conn
 
 def init_db():
-    """Initializes the database schema with cent-level accounting and migrates if needed."""
+    """Initializes the database schema with cent-level accounting."""
     with get_connection() as conn:
         cursor = conn.cursor()
         
-        # Check if table exists
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='payments';")
         exists = cursor.fetchone()
 
         if exists:
-            # Check existing columns
             cursor.execute("PRAGMA table_info(payments);")
             columns = [row["name"] for row in cursor.fetchall()]
             if "amount_cents" not in columns:
