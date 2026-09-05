@@ -1,6 +1,6 @@
 # Sementes do Amanhã — Juntos por um Novo Começo
 
-Campanha solidária com integração completa de pagamentos PIX via SigiloPay e arquitetura Serverless pronta para deploy contínuo na Vercel.
+Campanha solidária com integração completa de pagamentos PIX via API oficial da Blackcat e arquitetura Serverless pronta para deploy contínuo na Vercel.
 
 ---
 

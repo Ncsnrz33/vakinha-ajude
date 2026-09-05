@@ -1,6 +1,6 @@
 """
-Database access layer for Vakinha SigiloPay integration using SQLite.
-All monetary values are stored strictly in integer cents (e.g. R$ 25,00 -> 2500).
+Database access layer for Vakinha Blackcat integration using SQLite.
+All monetary values are stored strictly in integer cents (e.g. R$ 33,42 -> 3342).
 """
 import sqlite3
 import os
@@ -20,25 +20,20 @@ def get_connection():
     return conn
 
 def init_db():
-    """Initializes the database schema with cent-level accounting."""
+    """Initializes the database schema with cent-level accounting and columns for Blackcat."""
     with get_connection() as conn:
         cursor = conn.cursor()
         
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='payments';")
         exists = cursor.fetchone()
 
-        if exists:
-            cursor.execute("PRAGMA table_info(payments);")
-            columns = [row["name"] for row in cursor.fetchall()]
-            if "amount_cents" not in columns:
-                cursor.execute("DROP TABLE payments;")
-                exists = None
-
         if not exists:
             cursor.execute("""
                 CREATE TABLE payments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     provider_payment_id TEXT NOT NULL UNIQUE,
+                    external_ref TEXT,
+                    gateway TEXT DEFAULT 'blackcat',
                     type TEXT NOT NULL,
                     amount_cents INTEGER NOT NULL,
                     net_amount_cents INTEGER,
@@ -50,10 +45,21 @@ def init_db():
                     qr_image_url TEXT,
                     qr_base64 TEXT,
                     paid_at DATETIME,
+                    end_to_end_id TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 );
             """)
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_payments_provider_id ON payments(provider_payment_id);")
+        else:
+            # Check existing columns and add missing ones
+            cursor.execute("PRAGMA table_info(payments);")
+            columns = [row["name"] for row in cursor.fetchall()]
+            if "external_ref" not in columns:
+                cursor.execute("ALTER TABLE payments ADD COLUMN external_ref TEXT;")
+            if "gateway" not in columns:
+                cursor.execute("ALTER TABLE payments ADD COLUMN gateway TEXT DEFAULT 'blackcat';")
+            if "end_to_end_id" not in columns:
+                cursor.execute("ALTER TABLE payments ADD COLUMN end_to_end_id TEXT;")
 
         conn.commit()
 
@@ -67,6 +73,8 @@ def create_payment(payment_dict):
         cursor.execute("""
             INSERT INTO payments (
                 provider_payment_id,
+                external_ref,
+                gateway,
                 type,
                 amount_cents,
                 net_amount_cents,
@@ -78,9 +86,11 @@ def create_payment(payment_dict):
                 qr_image_url,
                 qr_base64,
                 created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             str(payment_dict["provider_payment_id"]),
+            payment_dict.get("external_ref"),
+            payment_dict.get("gateway", "blackcat"),
             str(payment_dict["type"]),
             int(payment_dict["amount_cents"]),
             int(payment_dict["net_amount_cents"]) if payment_dict.get("net_amount_cents") is not None else None,
@@ -107,30 +117,31 @@ def get_payment_by_provider_id(provider_payment_id):
         row = cursor.fetchone()
         return dict(row) if row else None
 
-def mark_payment_as_paid(provider_payment_id, fee_cents=None, net_amount_cents=None):
+def mark_payment_as_paid(provider_payment_id, fee_cents=None, net_amount_cents=None, end_to_end_id=None, paid_at=None):
     """
     Atomically marks a payment as paid using integer cents. Idempotent.
     """
     init_db()
     with get_connection() as conn:
         cursor = conn.cursor()
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if fee_cents is not None and net_amount_cents is not None:
-            cursor.execute("""
-                UPDATE payments
-                SET status = 'paid',
-                    fee_cents = ?,
-                    net_amount_cents = ?,
-                    paid_at = COALESCE(paid_at, ?)
-                WHERE provider_payment_id = ? AND status != 'paid'
-            """, (int(fee_cents), int(net_amount_cents), now_str, str(provider_payment_id)))
-        else:
-            cursor.execute("""
-                UPDATE payments
-                SET status = 'paid',
-                    paid_at = COALESCE(paid_at, ?)
-                WHERE provider_payment_id = ? AND status != 'paid'
-            """, (now_str, str(provider_payment_id)))
+        now_str = paid_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        updates = ["status = 'paid'", "paid_at = COALESCE(paid_at, ?)"]
+        params = [now_str]
+        
+        if fee_cents is not None:
+            updates.append("fee_cents = ?")
+            params.append(int(fee_cents))
+        if net_amount_cents is not None:
+            updates.append("net_amount_cents = ?")
+            params.append(int(net_amount_cents))
+        if end_to_end_id is not None:
+            updates.append("end_to_end_id = ?")
+            params.append(str(end_to_end_id))
+            
+        params.append(str(provider_payment_id))
+        sql = f"UPDATE payments SET {', '.join(updates)} WHERE provider_payment_id = ? AND status != 'paid'"
+        cursor.execute(sql, tuple(params))
         conn.commit()
         return cursor.rowcount > 0
 

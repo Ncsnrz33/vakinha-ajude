@@ -655,7 +655,36 @@
         <label style="display:block;font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;margin-bottom:6px;color:#282828">
           Ou digite outro valor:
         </label>
-        <input type="text" id="custom-donation-input" class="vk-custom-amount" value="R$ 33,42">
+                <input type="text" id="custom-donation-input" class="vk-custom-amount" value="R$ 33,42">
+
+        <!-- Dados do Doador exigidos pela Blackcat (Pix Banco Central) -->
+        <div class="vk-donor-form" style="margin-top:14px;margin-bottom:16px;">
+          <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#282828;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#24ca68" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Dados para identificação do Pix</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div>
+              <label for="donor-name" style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Nome completo:</label>
+              <input type="text" id="donor-name" class="vk-custom-amount" placeholder="Seu nome completo" autocomplete="name" style="font-size:13px;padding:8px 12px;height:auto;font-weight:500;text-align:left;border-color:#e2e2e2;" required>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div>
+                <label for="donor-cpf" style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:3px;">CPF:</label>
+                <input type="tel" id="donor-cpf" class="vk-custom-amount" placeholder="000.000.000-00" inputmode="numeric" maxlength="14" autocomplete="off" style="font-size:13px;padding:8px 12px;height:auto;font-weight:500;text-align:left;border-color:#e2e2e2;" required>
+              </div>
+              <div>
+                <label for="donor-phone" style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:3px;">WhatsApp / Tel:</label>
+                <input type="tel" id="donor-phone" class="vk-custom-amount" placeholder="(00) 00000-0000" inputmode="numeric" maxlength="15" autocomplete="tel" style="font-size:13px;padding:8px 12px;height:auto;font-weight:500;text-align:left;border-color:#e2e2e2;" required>
+              </div>
+            </div>
+            <div>
+              <label for="donor-email" style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:3px;">E-mail (para confirmação):</label>
+              <input type="email" id="donor-email" class="vk-custom-amount" placeholder="seuemail@exemplo.com" autocomplete="email" style="font-size:13px;padding:8px 12px;height:auto;font-weight:500;text-align:left;border-color:#e2e2e2;" required>
+            </div>
+            <div id="donor-form-error" style="color:#dc2626;font-size:11.5px;font-weight:600;display:none;padding:2px 0;"></div>
+          </div>
+        </div>
 
         <div style="background:#f9f9f9;border:1px solid #f1f0f0;border-radius:8px;padding:14px;margin-bottom:20px">
           <div style="display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:14px;color:#282828">
@@ -675,7 +704,7 @@
   </div>
 
   
-  <!-- PIX Checkout Modal (SigiloPay Gateway Integration) -->
+  <!-- PIX Checkout Modal (Blackcat Gateway Integration) -->
   <div id="pix-checkout-modal" class="vk-modal-backdrop">
     <div class="vk-modal-card vk-pix-checkout-card">
       <div class="vk-modal-header">

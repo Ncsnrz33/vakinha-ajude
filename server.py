@@ -1,6 +1,6 @@
 """
-Vakinha - HTTP Server & SigiloPay Payment Gateway Integration
-Official API Documentation: https://app.sigilopay.com.br/docs
+Vakinha - HTTP Server & Blackcat Official Payment Gateway Integration
+Official API Documentation: https://docs.blackcatoficial.com/
 """
 import http.server
 import os
@@ -8,7 +8,6 @@ import sys
 import json
 import re
 import urllib.parse
-import urllib.error
 import time
 from database import (
     init_db,
@@ -17,7 +16,7 @@ from database import (
     mark_payment_as_paid,
     list_payments
 )
-from sigilopay import SigiloPayClient, SigiloPayError
+from blackcat import BlackcatClient, BlackcatError
 
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
@@ -39,15 +38,15 @@ ENV = load_env()
 def get_env_var(key, default=""):
     return os.environ.get(key) or ENV.get(key) or default
 
-SIGILOPAY_CLIENT_ID = get_env_var("SIGILOPAY_CLIENT_ID", "")
-SIGILOPAY_CLIENT_SECRET = get_env_var("SIGILOPAY_CLIENT_SECRET", "")
-SIGILOPAY_API_URL = get_env_var("SIGILOPAY_API_URL", "https://app.sigilopay.com.br/api/v1")
+BLACKCAT_API_KEY = get_env_var("BLACKCAT_API_KEY", "")
+BLACKCAT_PUBLIC_KEY = get_env_var("BLACKCAT_PUBLIC_KEY", "")
+BLACKCAT_SPLIT_CODE = get_env_var("BLACKCAT_SPLIT_CODE", "")
+BLACKCAT_API_URL = get_env_var("BLACKCAT_API_URL", "https://api.blackcatoficial.com/api")
 PORT = int(get_env_var("PORT", "3000"))
 
-sigilopay_client = SigiloPayClient(
-    public_key=SIGILOPAY_CLIENT_ID,
-    secret_key=SIGILOPAY_CLIENT_SECRET,
-    base_url=SIGILOPAY_API_URL
+blackcat_client = BlackcatClient(
+    api_key=BLACKCAT_API_KEY,
+    base_url=BLACKCAT_API_URL
 )
 
 # --- Custom Request Handler ---
@@ -63,7 +62,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Connection", "close")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.end_headers()
         self.wfile.write(body_bytes)
@@ -72,7 +71,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
         self.end_headers()
 
     def do_POST(self):
@@ -87,134 +86,145 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
                 pay_type = body.get("type", "donation")
                 if pay_type not in ["donation", "goal_completion", "thank_you_video"]:
-                    return self._send_json(400, {"success": False, "message": "Tipo de pagamento inválido."})
+                    return self._send_json(400, {"success": False, "message": "Tipo de contribuição inválido."})
 
                 if pay_type == "thank_you_video":
-                    amount_reais = 8.99
+                    amount_cents = 899
                 elif pay_type == "goal_completion":
                     client_amount = float(body.get("amount", 33.42))
-                    amount_reais = round(min(1000.0, max(1.0, client_amount)), 2)
+                    amount_cents = round(min(1000.0, max(1.0, client_amount)) * 100)
                 else:  # donation
                     client_amount = float(body.get("amount", 25.00))
-                    amount_reais = round(client_amount, 2)
-                    if amount_reais < 1.0 or amount_reais > 1000.0:
+                    amount_cents = round(client_amount * 100)
+                    if amount_cents < 100 or amount_cents > 100000:
                         return self._send_json(400, {"success": False, "message": "Valor de doação deve ser entre R$ 1,00 e R$ 1.000,00."})
 
-                amount_cents = round(amount_reais * 100)
-                payer_doc = str(body.get("payerDocument", body.get("payer_document", "111.444.777-35"))).strip()
-                payer_name = str(body.get("payerName", body.get("payer_name", "Apoiador Solidário"))).strip()
-                payer_email = str(body.get("payerEmail", body.get("payer_email", "doador@ajude-vakinha.com"))).strip()
-                payer_phone = str(body.get("payerPhone", body.get("payer_phone", "(11) 99876-5432"))).strip()
+                # Extract customer info
+                cust = body.get("customer") or {}
+                payer_name = str(cust.get("name") or body.get("payerName") or body.get("name") or "Apoiador Solidário").strip()
+                payer_doc = str(cust.get("cpf") or cust.get("document") or body.get("payerDocument") or body.get("cpf") or "11144477735").strip()
+                payer_email = str(cust.get("email") or body.get("payerEmail") or body.get("email") or "doador@ajude-vakinha.com").strip()
+                payer_phone = str(cust.get("phone") or body.get("payerPhone") or body.get("phone") or "11998765432").strip()
+
+                utms = body.get("utms") or body.get("utm") or {}
 
                 desc_map = {
-                    "donation": "Doação Vaquinha Sementes do Amanhã",
+                    "donation": "Contribuição Sementes do Amanhã",
                     "goal_completion": "Complemento da Meta Sementes do Amanhã",
                     "thank_you_video": "Vídeo Especial de Agradecimento"
                 }
 
-                # Generate via SigiloPay Client
-                pix_data = sigilopay_client.generate_pix(
-                    amount_reais=amount_reais,
-                    pay_type=pay_type,
-                    description=desc_map.get(pay_type, "Doação Vaquinha"),
-                    payer_name=payer_name,
-                    payer_document=payer_doc,
-                    payer_email=payer_email,
-                    payer_phone=payer_phone
+                # Generate Pix via Blackcat Client
+                res = blackcat_client.create_sale(
+                    amount_cents=amount_cents,
+                    title=desc_map.get(pay_type, "Contribuição Sementes do Amanhã"),
+                    customer_name=payer_name,
+                    customer_email=payer_email,
+                    customer_phone=payer_phone,
+                    customer_document=payer_doc,
+                    document_type="cpf",
+                    postback_url="https://ajude-vakinha.vercel.app/api/payments/webhook",
+                    utms=utms
                 )
 
-                fee_reais = float(pix_data.get("fee_reais", 0.99))
-                fee_cents = round(fee_reais * 100)
-                net_cents = amount_cents - fee_cents
-
+                tx_id = str(res["transactionId"])
                 db_record = {
-                    "provider_payment_id": str(pix_data["id"]),
+                    "provider_payment_id": tx_id,
+                    "external_ref": res.get("raw", {}).get("data", {}).get("externalRef"),
+                    "gateway": "blackcat",
                     "type": pay_type,
                     "amount_cents": amount_cents,
-                    "net_amount_cents": net_cents,
-                    "fee_cents": fee_cents,
+                    "net_amount_cents": res.get("netAmount"),
+                    "fee_cents": res.get("fees"),
                     "status": "pending",
                     "payer_name": payer_name,
                     "payer_document": payer_doc,
-                    "qr_copy_paste": pix_data.get("pixCopyPaste"),
-                    "qr_image_url": pix_data.get("qrImageUrl"),
-                    "qr_base64": pix_data.get("qrBase64", "")
+                    "qr_copy_paste": res.get("copyPaste"),
+                    "qr_image_url": res.get("qrCodeBase64"),
+                    "qr_base64": res.get("qrCodeBase64")
                 }
                 create_payment(db_record)
 
+                amount_reais = round(amount_cents / 100.0, 2)
                 p_info = {
-                    "id": pix_data["id"],
+                    "id": tx_id,
                     "status": "pending",
                     "value": amount_reais,
                     "amount_cents": amount_cents,
                     "type": pay_type,
-                    "pixCopyPaste": db_record["qr_copy_paste"],
-                    "qrImageUrl": db_record["qr_image_url"],
-                    "qrBase64": db_record["qr_base64"],
-                    "qr_code_text": db_record["qr_copy_paste"],
-                    "qr_code_base64": db_record["qr_base64"],
-                    "qr_code_image_url": db_record["qr_image_url"]
+                    "pixCopyPaste": res.get("copyPaste"),
+                    "qrImageUrl": res.get("qrCodeBase64"),
+                    "qrBase64": res.get("qrCodeBase64"),
+                    "qr_code_text": res.get("copyPaste"),
+                    "qr_code_base64": res.get("qrCodeBase64"),
+                    "qr_code_image_url": res.get("qrCodeBase64")
                 }
                 response_data = {
                     "success": True,
-                    "id": pix_data["id"],
-                    "status": "pending",
+                    "transactionId": tx_id,
+                    "id": tx_id,
+                    "status": "PENDING",
                     "amount": amount_reais,
-                    "value": amount_reais,
                     "amount_cents": amount_cents,
-                    "qr_code_base64": db_record["qr_base64"],
-                    "qr_code_image_url": db_record["qr_image_url"],
-                    "qr_code_text": db_record["qr_copy_paste"],
+                    "qrCodeBase64": res.get("qrCodeBase64"),
+                    "copyPaste": res.get("copyPaste"),
+                    "expiresAt": res.get("expiresAt"),
                     "payment": p_info
                 }
-                return self._send_json(200, response_data)
+                return self._send_json(201, response_data)
 
-            except SigiloPayError as e:
-                print(f"[SigiloPay Generate Error HTTP {e.status_code}] code={e.error_code} msg={e.message}", flush=True)
-                return self._send_json(e.status_code if e.status_code in [400, 401, 403, 422] else 502, {
+            except BlackcatError as e:
+                print(f"[Blackcat Create Sale Error HTTP {e.status_code}] msg={e.message}", flush=True)
+                return self._send_json(e.status_code if e.status_code in [400, 401, 403, 404, 422, 429] else 500, {
                     "success": False,
-                    "message": e.message,
-                    "error_code": e.error_code,
-                    "gateway": "sigilopay",
-                    "details": e.details
+                    "message": "Não foi possível gerar o Pix agora. Confira os dados e tente novamente." if e.status_code != 401 else "Credenciais do gateway inválidas.",
+                    "error": e.message,
+                    "gateway": "blackcat"
                 })
             except Exception as e:
-                print(f"[Generate Error] {type(e).__name__}: {e}", flush=True)
+                print(f"[Create Pix Error] {type(e).__name__}: {e}", flush=True)
                 return self._send_json(500, {
                     "success": False,
                     "message": "Não foi possível gerar o Pix agora. Tente novamente em alguns instantes.",
-                    "gateway": "sigilopay"
+                    "gateway": "blackcat"
                 })
 
-        # Route 2: Webhook SigiloPay
-        elif path == "/api/webhooks/sigilopay":
+        # Route 2: Webhook Blackcat (POST /api/payments/webhook)
+        elif path in ["/api/payments/webhook", "/api/webhooks/blackcat"]:
             try:
                 length = int(self.headers.get("Content-Length", 0))
                 raw_body = self.rfile.read(length).decode("utf-8")
                 hook = json.loads(raw_body) if raw_body else {}
 
-                tx_id = hook.get("id") or hook.get("transactionId") or hook.get("identifier")
-                status = str(hook.get("status") or hook.get("transactionStatus") or "").upper()
-                print(f"[SigiloPay Webhook Received] id={tx_id} status={status}", flush=True)
+                tx_id = hook.get("transactionId") or hook.get("id")
+                event = hook.get("event") or self.headers.get("X-Webhook-Event", "")
+                status = str(hook.get("status", "")).upper()
+                print(f"[Blackcat Webhook Received] event={event} tx_id={tx_id} status={status}", flush=True)
 
                 if not tx_id:
-                    return self._send_json(400, {"success": False, "message": "Transaction ID missing"})
+                    return self._send_json(400, {"success": False, "message": "transactionId missing"})
 
                 payment = get_payment_by_provider_id(tx_id)
                 if not payment:
-                    return self._send_json(404, {"success": False, "message": "Transaction not found in local db"})
+                    return self._send_json(404, {"success": False, "message": "Transaction not found in db"})
 
                 if payment["status"] == "paid":
                     return self._send_json(200, {"success": True, "message": "Already paid (idempotent)"})
 
-                if status in ["COMPLETED", "PAID", "CONFIRMED", "OK"]:
-                    mark_payment_as_paid(tx_id)
-                    print(f"[SigiloPay Webhook] Marked {tx_id} as paid", flush=True)
+                # Server-to-server verification with Blackcat API Key (Section Webhook Security)
+                verified = blackcat_client.get_status(tx_id)
+                if verified.get("success") and verified.get("status") == "paid":
+                    fee_cents = verified.get("fees") or 0
+                    net_cents = verified.get("netAmount") or (payment["amount_cents"] - fee_cents)
+                    e2e = verified.get("endToEndId")
+                    paid_at = verified.get("paidAt")
+                    mark_payment_as_paid(tx_id, fee_cents=fee_cents, net_amount_cents=net_cents, end_to_end_id=e2e, paid_at=paid_at)
+                    print(f"[Blackcat Webhook Verified] Payment {tx_id} confirmed as paid", flush=True)
 
                 return self._send_json(200, {"success": True})
 
             except Exception as e:
-                print(f"[SigiloPay Webhook Error] {e}", flush=True)
+                print(f"[Blackcat Webhook Error] {e}", flush=True)
                 return self._send_json(500, {"success": False, "message": "Webhook error"})
 
         else:
@@ -222,27 +232,34 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         clean_path = self.path.split("?")[0].rstrip("/")
+        parsed_url = urllib.parse.urlparse(self.path)
+        qs = urllib.parse.parse_qs(parsed_url.query)
 
         # Health & Gateway Status
         if clean_path in ["/api", "/api/health", "/api/version"]:
-            cid_prefix = sigilopay_client.public_key[:8] + "..." if sigilopay_client.public_key else "empty"
             return self._send_json(200, {
                 "status": "ok",
-                "service": "vakinha-sigilopay-api",
-                "gateway": "sigilopay",
-                "client_id_prefix": cid_prefix,
-                "gateway_url": sigilopay_client.base_url
+                "service": "vakinha-blackcat-api",
+                "gateway": "blackcat",
+                "environment": "production" if os.environ.get("VERCEL") else "local",
+                "has_api_key": bool(blackcat_client.api_key),
+                "gateway_url": blackcat_client.base_url
             })
 
-        # Route: Payment Status Polling (GET /api/payments/<id>/status)
+        # Route: Payment Status Polling (GET /api/payments/<id>/status or GET /api/payments/pix/status?transactionId=...)
+        pid = None
         m = re.match(r"^/api/payments/(?P<pid>[^/]+)/status$", clean_path)
         if m:
             pid = m.group("pid")
+        elif clean_path in ["/api/payments/pix/status", "/api/payments/status"]:
+            pid = qs.get("transactionId", [None])[0] or qs.get("id", [None])[0]
+
+        if pid:
             payment = get_payment_by_provider_id(pid)
 
             if not payment:
-                # Query SigiloPay directly if not in local cache
-                remote_res = sigilopay_client.check_status(pid)
+                # Query Blackcat directly if not in local cache
+                remote_res = blackcat_client.get_status(pid)
                 if remote_res.get("success"):
                     amt_cents = remote_res.get("amount_cents", 0)
                     remote_st = remote_res.get("status", "pending")
@@ -251,24 +268,31 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         "type": "donation",
                         "amount_cents": amt_cents,
                         "status": remote_st,
-                        "paid_at": remote_res.get("paid_at")
+                        "paid_at": remote_res.get("paidAt"),
+                        "end_to_end_id": remote_res.get("endToEndId"),
+                        "gateway": "blackcat"
                     })
                     payment = get_payment_by_provider_id(pid)
 
             if not payment:
                 return self._send_json(404, {"success": False, "message": "Payment not found"})
 
-            # If pending, check with SigiloPay
+            # If pending, check with Blackcat
             if payment["status"] == "pending":
-                remote_res = sigilopay_client.check_status(pid)
+                remote_res = blackcat_client.get_status(pid)
                 if remote_res.get("success") and remote_res.get("status") == "paid":
-                    mark_payment_as_paid(pid)
+                    fee_cents = remote_res.get("fees") or 0
+                    net_cents = remote_res.get("netAmount") or (payment["amount_cents"] - fee_cents)
+                    e2e = remote_res.get("endToEndId")
+                    paid_at = remote_res.get("paidAt")
+                    mark_payment_as_paid(pid, fee_cents=fee_cents, net_amount_cents=net_cents, end_to_end_id=e2e, paid_at=paid_at)
                     payment = get_payment_by_provider_id(pid)
-                    print(f"[SigiloPay Status Poll] Payment {pid} confirmed as paid", flush=True)
+                    print(f"[Blackcat Status Poll] Payment {pid} confirmed as paid", flush=True)
 
             amount_reais = round(payment["amount_cents"] / 100.0, 2)
             return self._send_json(200, {
                 "id": payment["provider_payment_id"],
+                "transactionId": payment["provider_payment_id"],
                 "status": payment["status"],
                 "amount_cents": payment["amount_cents"],
                 "value": amount_reais,
@@ -287,9 +311,9 @@ def run_server(port=PORT):
     try:
         with http.server.ThreadingHTTPServer(("0.0.0.0", port), handler) as httpd:
             print("=" * 60, flush=True)
-            print(f" Vakinha SigiloPay Server rodando com sucesso!", flush=True)
+            print(f" Vakinha Blackcat Server rodando com sucesso!", flush=True)
             print(f" URL Local: http://localhost:{port}", flush=True)
-            print(f" Gateway Ativo: SigiloPay ({sigilopay_client.base_url})", flush=True)
+            print(f" Gateway Ativo: Blackcat ({blackcat_client.base_url})", flush=True)
             print("=" * 60, flush=True)
             httpd.serve_forever()
     except OSError as e:

@@ -515,13 +515,159 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // =========================================================================
-  // SIGILOPAY PIX PAYMENT CONTROLLER
+  // BLACKCAT PIX PAYMENT CONTROLLER
   // ==========================================================================
   let activePollingTimer = null;
   let currentActivePaymentId = null;
   let currentActivePaymentAmount = 25;
   let currentActivePaymentType = 'donation';
   let currentActivePaymentOnSuccess = null;
+
+  // Donor form elements (Required by Blackcat / BACEN for Pix creation)
+  const donorNameInput = document.getElementById('donor-name');
+  const donorCpfInput = document.getElementById('donor-cpf');
+  const donorPhoneInput = document.getElementById('donor-phone');
+  const donorEmailInput = document.getElementById('donor-email');
+  const donorErrorEl = document.getElementById('donor-form-error');
+
+  // Masks for Brazilian document & phone
+  function maskCPF(value) {
+    return value
+      .replace(/\D/g, '')
+      .slice(0, 11)
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  }
+
+  function maskPhone(value) {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 10) {
+      return digits
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+    }
+    return digits
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d{4})$/, '$1-$2');
+  }
+
+  function isValidCPF(cpf) {
+    const clean = cpf.replace(/\D/g, '');
+    if (clean.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(clean)) return false;
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += parseInt(clean.charAt(i), 10) * (10 - i);
+    let rev = 11 - (sum % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(clean.charAt(9), 10)) return false;
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(clean.charAt(i), 10) * (11 - i);
+    rev = 11 - (sum % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    return rev === parseInt(clean.charAt(10), 10);
+  }
+
+  function getUtmParams() {
+    const params = new URLSearchParams(window.location.search);
+    const utms = {};
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach(k => {
+      const v = params.get(k);
+      if (v) utms[k] = v;
+    });
+    return utms;
+  }
+
+  // Pre-fill and save to localStorage
+  try {
+    if (donorNameInput && !donorNameInput.value) donorNameInput.value = localStorage.getItem('vk_donor_name') || '';
+    if (donorCpfInput && !donorCpfInput.value) donorCpfInput.value = localStorage.getItem('vk_donor_cpf') || '';
+    if (donorPhoneInput && !donorPhoneInput.value) donorPhoneInput.value = localStorage.getItem('vk_donor_phone') || '';
+    if (donorEmailInput && !donorEmailInput.value) donorEmailInput.value = localStorage.getItem('vk_donor_email') || '';
+  } catch (e) {}
+
+  if (donorCpfInput) {
+    donorCpfInput.addEventListener('input', (e) => {
+      e.target.value = maskCPF(e.target.value);
+      try { localStorage.setItem('vk_donor_cpf', e.target.value); } catch (_) {}
+      if (donorErrorEl) donorErrorEl.style.display = 'none';
+    });
+  }
+  if (donorPhoneInput) {
+    donorPhoneInput.addEventListener('input', (e) => {
+      e.target.value = maskPhone(e.target.value);
+      try { localStorage.setItem('vk_donor_phone', e.target.value); } catch (_) {}
+      if (donorErrorEl) donorErrorEl.style.display = 'none';
+    });
+  }
+  if (donorNameInput) {
+    donorNameInput.addEventListener('input', (e) => {
+      try { localStorage.setItem('vk_donor_name', e.target.value); } catch (_) {}
+      if (donorErrorEl) donorErrorEl.style.display = 'none';
+    });
+  }
+  if (donorEmailInput) {
+    donorEmailInput.addEventListener('input', (e) => {
+      try { localStorage.setItem('vk_donor_email', e.target.value); } catch (_) {}
+      if (donorErrorEl) donorErrorEl.style.display = 'none';
+    });
+  }
+
+  function getDonorInfo(validate = true) {
+    const name = (donorNameInput?.value || localStorage.getItem('vk_donor_name') || '').trim();
+    const cpf = (donorCpfInput?.value || localStorage.getItem('vk_donor_cpf') || '').trim();
+    const phone = (donorPhoneInput?.value || localStorage.getItem('vk_donor_phone') || '').trim();
+    const email = (donorEmailInput?.value || localStorage.getItem('vk_donor_email') || '').trim();
+
+    if (donorErrorEl) {
+      donorErrorEl.style.display = 'none';
+      donorErrorEl.textContent = '';
+    }
+
+    if (validate) {
+      if (!name || name.length < 3) {
+        if (donorErrorEl) {
+          donorErrorEl.textContent = 'Por favor, informe seu nome completo.';
+          donorErrorEl.style.display = 'block';
+        }
+        donorNameInput?.focus();
+        return null;
+      }
+      const cleanCpf = cpf.replace(/\D/g, '');
+      if (cleanCpf.length !== 11 || !isValidCPF(cleanCpf)) {
+        if (donorErrorEl) {
+          donorErrorEl.textContent = 'Por favor, informe um CPF válido para identificação do Pix.';
+          donorErrorEl.style.display = 'block';
+        }
+        donorCpfInput?.focus();
+        return null;
+      }
+      const cleanPhone = phone.replace(/\D/g, '');
+      if (cleanPhone.length < 10) {
+        if (donorErrorEl) {
+          donorErrorEl.textContent = 'Por favor, informe seu telefone com DDD.';
+          donorErrorEl.style.display = 'block';
+        }
+        donorPhoneInput?.focus();
+        return null;
+      }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        if (donorErrorEl) {
+          donorErrorEl.textContent = 'Por favor, informe um e-mail válido para receber o comprovante.';
+          donorErrorEl.style.display = 'block';
+        }
+        donorEmailInput?.focus();
+        return null;
+      }
+    }
+
+    return {
+      name: name || 'Apoiador Solidário',
+      document: cpf.replace(/\D/g, '') || '11144477735',
+      phone: phone.replace(/\D/g, '') || '11998765432',
+      email: email || 'doador@ajude-vakinha.com'
+    };
+  }
 
   function stopPixPolling() {
     if (activePollingTimer) {
@@ -561,7 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         })
         .catch(err => {
-          console.error('Erro na consulta de status do PIX:', err);
+          console.error('Erro na consulta de status do Pix:', err);
         });
     }, 3000);
   }
@@ -588,6 +734,10 @@ document.addEventListener('DOMContentLoaded', () => {
       qrImg.style.display = 'none';
     }
     if (qrSkeleton) {
+      qrSkeleton.innerHTML = `
+        <div class="vk-pix-spinner"></div>
+        <span>Gerando cobrança Pix oficial...</span>
+      `;
       qrSkeleton.classList.remove('hidden');
       qrSkeleton.style.display = 'flex';
     }
@@ -605,12 +755,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     openModal('pix-checkout-modal');
 
-    // Call backend endpoint to generate PIX
+    // Retrieve donor info from extraMeta or localStorage/form
+    const donor = {
+      name: extraMeta.name || localStorage.getItem('vk_donor_name') || 'Apoiador Solidário',
+      document: (extraMeta.document || localStorage.getItem('vk_donor_cpf') || '11144477735').replace(/\D/g, ''),
+      phone: (extraMeta.phone || localStorage.getItem('vk_donor_phone') || '11998765432').replace(/\D/g, ''),
+      email: extraMeta.email || localStorage.getItem('vk_donor_email') || 'doador@ajude-vakinha.com'
+    };
+
+    // Call backend endpoint to generate PIX via Blackcat
     const payload = {
       type: type,
       amount: amount,
-      payer_name: extraMeta.name || 'Apoiador Vakinha',
-      payer_document: extraMeta.document || '11144477735'
+      customer: {
+        name: donor.name,
+        cpf: donor.document,
+        phone: donor.phone,
+        email: donor.email
+      },
+      payer_name: donor.name,
+      payer_document: donor.document,
+      payer_phone: donor.phone,
+      payer_email: donor.email,
+      utms: getUtmParams()
     };
 
     fetch('/api/payments/pix', {
@@ -620,18 +787,18 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .then(async res => {
       const data = await res.json();
-      if (!res.ok || (!data.success && !data.id)) {
-        throw new Error(data.message || data.error || 'Não foi possível gerar o PIX agora. Tente novamente em alguns instantes.');
+      if (!res.ok || (!data.success && !data.id && !data.transactionId)) {
+        throw new Error(data.message || data.error || 'Não foi possível gerar o Pix agora. Tente novamente em alguns instantes.');
       }
       return data;
     })
     .then(data => {
       const paymentObj = data.payment || data;
-      currentActivePaymentId = paymentObj.id || data.id;
+      currentActivePaymentId = paymentObj.transactionId || paymentObj.id || data.transactionId || data.id;
 
       // Update QR Code
-      let qrSource = paymentObj.qrImageUrl || paymentObj.qr_code_image_url || paymentObj.qrBase64 || paymentObj.qr_code_base64;
-      const copyPasteCode = paymentObj.pixCopyPaste || paymentObj.qr_code_text || '';
+      let qrSource = paymentObj.qrCodeBase64 || paymentObj.qrImageUrl || paymentObj.qr_code_image_url || paymentObj.qrBase64 || paymentObj.qr_code_base64 || data.qrCodeBase64;
+      const copyPasteCode = paymentObj.copyPaste || paymentObj.pixCopyPaste || paymentObj.qr_code_text || data.copyPaste || '';
 
       // Fallback: If no direct image URL was provided, generate standard QR image from real PIX EMV code
       if (!qrSource && copyPasteCode) {
@@ -660,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (copyBtn) {
         copyBtn.onclick = () => {
           if (copyInput && copyInput.value) {
-            copyTextToClipboard(copyInput.value, 'Código PIX copiado com sucesso!');
+            copyTextToClipboard(copyInput.value, 'Código Pix copiado com sucesso!');
             copyBtn.innerHTML = `
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M20 6L9 17l-5-5"></path>
@@ -684,8 +851,8 @@ document.addEventListener('DOMContentLoaded', () => {
       startPixPolling(currentActivePaymentId, type, amount, onPaidSuccess);
     })
     .catch(err => {
-      console.error('Erro ao gerar cobrança PIX:', err);
-      const userMsg = err.message || 'Não foi possível gerar o PIX agora. Tente novamente em alguns instantes.';
+      console.error('Erro ao gerar cobrança Pix:', err);
+      const userMsg = err.message || 'Não foi possível gerar o Pix agora. Tente novamente em alguns instantes.';
       showToast(userMsg);
       if (qrSkeleton) {
         qrSkeleton.innerHTML = `
@@ -704,7 +871,7 @@ document.addEventListener('DOMContentLoaded', () => {
           retryBtn.onclick = () => {
             qrSkeleton.innerHTML = `
               <div class="vk-pix-spinner"></div>
-              <span>Gerando cobrança PIX...</span>
+              <span>Gerando cobrança Pix...</span>
             `;
             startPixPayment(type, amount, extraMeta, onPaidSuccess);
           };
@@ -726,15 +893,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-
   // --- Confirm First Donation with PIX -> Advances to Post-Donation Flow ---
   const confirmDonateBtn = document.getElementById('confirm-donate-btn');
   if (confirmDonateBtn) {
     confirmDonateBtn.addEventListener('click', () => {
       if (confirmDonateBtn.disabled) return;
+
+      const donorInfo = getDonorInfo(true);
+      if (!donorInfo) return; // Validation failed, error is displayed on donor form
+
       confirmDonateBtn.disabled = true;
       const originalText = confirmDonateBtn.textContent;
-      confirmDonateBtn.textContent = 'Gerando PIX...';
+      confirmDonateBtn.textContent = 'Gerando Pix...';
 
       let amount = 33.42;
       if (customAmountInput) {
@@ -752,7 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
       confirmDonateBtn.disabled = false;
       confirmDonateBtn.textContent = originalText;
 
-      startPixPayment('donation', amount, {}, (paidData) => {
+      startPixPayment('donation', amount, donorInfo, (paidData) => {
         const donationCents = Math.round(amount * 100);
         const currentRaisedCents = Math.round(campaignConfig.currentRaised * 100) + donationCents;
         campaignConfig.currentRaised = currentRaisedCents / 100;
@@ -769,7 +939,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ==========================================================================
+    // ==========================================================================
   // 3. STEP 1 ACTIONS (PAGAMENTO APROVADO)
   // ==========================================================================
 
@@ -793,7 +963,8 @@ document.addEventListener('DOMContentLoaded', () => {
       postBtnComplete.disabled = false;
       postBtnComplete.textContent = origText;
 
-      startPixPayment('goal_completion', remaining, {}, (paidData) => {
+      const dInfo = (typeof getDonorInfo === 'function' ? getDonorInfo(false) : null) || {};
+      startPixPayment('goal_completion', remaining, dInfo, (paidData) => {
         const goalCents = Math.round(campaignConfig.goalMeta * 100);
         const completionCents = Math.round(remaining * 100);
         const newRaisedCents = Math.min(goalCents, Math.round(campaignConfig.currentRaised * 100) + completionCents);
@@ -842,7 +1013,8 @@ document.addEventListener('DOMContentLoaded', () => {
       postBtnBuyVideo.disabled = false;
       postBtnBuyVideo.textContent = origText;
 
-      startPixPayment('thank_you_video', videoPrice, {}, (paidData) => {
+      const dInfo = (typeof getDonorInfo === 'function' ? getDonorInfo(false) : null) || {};
+      startPixPayment('thank_you_video', videoPrice, dInfo, (paidData) => {
         openPostDonationFlow('finished');
       });
     });
