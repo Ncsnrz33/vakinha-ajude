@@ -726,47 +726,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Developer Sandbox Helper (Strictly disabled and hidden in production)
-  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const urlParams = new URLSearchParams(window.location.search);
-  const showDevSandbox = isLocalDev && urlParams.get('sandbox_debug') === '1';
-
-  const pixSandboxBar = document.querySelector('.vk-pix-sandbox-bar');
-  const pixSandboxBtn = document.getElementById('pix-sandbox-test-confirm');
-  const zapBtnSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;display:inline-block"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
-
-  if (pixSandboxBar && pixSandboxBtn) {
-    if (showDevSandbox) {
-      pixSandboxBar.style.setProperty('display', 'flex', 'important');
-      pixSandboxBtn.style.setProperty('display', 'flex', 'important');
-      pixSandboxBtn.addEventListener('click', () => {
-        if (!currentActivePaymentId) {
-          showToast('Nenhum pagamento PIX ativo.');
-          return;
-        }
-        pixSandboxBtn.textContent = 'Confirmando...';
-        fetch('/api/payments/sandbox/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: currentActivePaymentId, payment_id: currentActivePaymentId })
-        })
-        .then(res => res.json())
-        .then(res => {
-          pixSandboxBtn.innerHTML = `${zapBtnSvg}Simular Confirmação PIX (Sandbox)`;
-          if (res.success) {
-            showToast('Confirmação Sandbox disparada! Processando...');
-          }
-        })
-        .catch(err => {
-          pixSandboxBtn.innerHTML = `${zapBtnSvg}Simular Confirmação PIX (Sandbox)`;
-          console.error('Erro sandbox confirm:', err);
-        });
-      });
-    } else {
-      pixSandboxBar.style.setProperty('display', 'none', 'important');
-      pixSandboxBtn.style.setProperty('display', 'none', 'important');
-    }
-  }
 
   // --- Confirm First Donation with PIX -> Advances to Post-Donation Flow ---
   const confirmDonateBtn = document.getElementById('confirm-donate-btn');

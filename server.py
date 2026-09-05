@@ -40,7 +40,7 @@ def get_env_var(key, default=""):
     return os.environ.get(key) or ENV.get(key) or default
 
 CAOSPAY_API_URL = get_env_var("CAOSPAY_API_URL", "https://caospayment.shop/api/pay")
-CAOSPAY_API_TOKEN = get_env_var("CAOSPAY_API_TOKEN", "cpk_test_742e6048c9e4924c1ac58f7a37e9da770f24deba66d588cb")
+CAOSPAY_API_TOKEN = get_env_var("CAOSPAY_API_TOKEN", "cpk_0c356724f0964b1ef98bf37b2aceb56d2ff5913412b6f215")
 USE_PAYMENT_MOCK = get_env_var("USE_PAYMENT_MOCK", "false").strip().lower() == "true"
 PORT = int(get_env_var("PORT", "3000"))
 
@@ -96,8 +96,13 @@ class CaosPayClient:
         Calls CaosPay /api/pay/generate using real API by default.
         Only generates mock if USE_PAYMENT_MOCK is explicitly True.
         """
+        start_time = time.time()
         value_reais = round(amount_cents / 100.0, 2)
-        print(f"[CaosPay] generating payment type={pay_type} amount={amount_cents}")
+        token_prefix = self.token[:8] + "..." if len(self.token) >= 8 else "empty"
+        is_prod = not self.token.startswith("cpk_test_")
+        token_type = "production" if is_prod else "sandbox"
+
+        print(f"[PIX_REQUEST_START] type={pay_type} amount_cents={amount_cents} value_reais={value_reais:.2f} token_mode={token_type} token_prefix={token_prefix}", flush=True)
 
         # Explicit Mock Mode ONLY (never activated automatically)
         if self.use_mock:
@@ -130,6 +135,8 @@ class CaosPayClient:
             "payerDocument": payer_document or "00000000000"
         }
 
+        print(f"[UPSTREAM_CALL] url={url} method=POST value={value_reais:.2f} token_prefix={token_prefix}", flush=True)
+
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
@@ -138,32 +145,53 @@ class CaosPayClient:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                elapsed_ms = round((time.time() - start_time) * 1000)
+                raw_bytes = resp.read()
+                data = json.loads(raw_bytes.decode("utf-8"))
+                print(f"[UPSTREAM_SUCCESS] status={resp.status} elapsed_ms={elapsed_ms} id={data.get('payment', {}).get('id')}", flush=True)
                 if data.get("success") and "payment" in data:
                     p = data["payment"]
-                    print(f"[CaosPay] payment created id={p.get('id')}", flush=True)
                     # Automatic QR Code image fallback from copy-paste EMV payload
                     if not p.get("qr_image_url") and not p.get("qr_src") and not p.get("qr_base64"):
                         emv = p.get("qr_copy_paste") or p.get("pixCopyPaste")
                         if emv:
                             p["qr_image_url"] = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={urllib.parse.quote(emv)}"
+                    p["_diagnostics"] = {
+                        "elapsed_ms": elapsed_ms,
+                        "upstream_status": resp.status,
+                        "token_mode": token_type
+                    }
                     return p
                 else:
                     err_msg = data.get("message") or "Erro na resposta da CaosPay"
-                    print(f"[CaosPay] generate failed status={resp.status}, msg={err_msg}", flush=True)
-                    raise RuntimeError(err_msg)
+                    print(f"[UPSTREAM_BUSINESS_ERROR] status={resp.status} elapsed_ms={elapsed_ms} msg={err_msg}", flush=True)
+                    err = RuntimeError(err_msg)
+                    err.custom_detail = str(data)
+                    err.upstream_status = resp.status
+                    err.elapsed_ms = elapsed_ms
+                    raise err
         except urllib.error.HTTPError as e:
+            elapsed_ms = round((time.time() - start_time) * 1000)
             err_body = ""
             try:
                 err_body = e.read().decode("utf-8", errors="replace")
             except Exception:
                 pass
-            print(f"[CaosPay HTTP Error] Status={e.code}, Reason={e.reason}, Body={err_body[:300]}", flush=True)
+            print(f"[UPSTREAM_HTTP_ERROR] status={e.code} elapsed_ms={elapsed_ms} reason={e.reason} body_snippet={err_body[:200]}", flush=True)
             e.custom_detail = err_body
+            e.elapsed_ms = elapsed_ms
+            e.upstream_url = url
+            e.token_mode = token_type
+            e.token_prefix = token_prefix
             raise
         except Exception as e:
-            print(f"[CaosPay Unexpected Error] {type(e).__name__}: {e}", flush=True)
+            elapsed_ms = round((time.time() - start_time) * 1000)
+            print(f"[UPSTREAM_UNEXPECTED_ERROR] type={type(e).__name__} elapsed_ms={elapsed_ms} error={e}", flush=True)
+            e.elapsed_ms = elapsed_ms
+            e.upstream_url = url
+            e.token_mode = token_type
+            e.token_prefix = token_prefix
             raise
 
     def check_status(self, transaction_id):
@@ -357,18 +385,32 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
             except urllib.error.HTTPError as e:
                 err_text = getattr(e, "custom_detail", "")
-                print(f"[Generate Error HTTP {e.code}] Upstream CaosPay: {err_text[:200]}", flush=True)
+                elapsed_ms = getattr(e, "elapsed_ms", 0)
+                tok_mode = getattr(e, "token_mode", "production")
+                tok_prefix = getattr(e, "token_prefix", "unknown")
+                upstream_url = getattr(e, "upstream_url", "https://caospayment.shop/api/pay/generate")
+
+                print(f"[Generate Error HTTP {e.code}] Upstream CaosPay in {elapsed_ms}ms: {err_text[:200]}", flush=True)
                 msg = "Não foi possível gerar o PIX agora. Tente novamente em alguns instantes."
                 if e.code == 401:
                     msg = "Credenciais do provedor de pagamento inválidas ou expiradas."
                 elif e.code == 400:
                     msg = "Dados inválidos para a criação do PIX. Verifique os valores informados."
                 elif e.code in [502, 503, 504]:
-                    msg = "O gateway de pagamento CaosPay está temporariamente instável. Tente novamente em instantes."
+                    msg = "O gateway de pagamento CaosPay está temporariamente instável (HTTP 502 da origem caospayment.shop). Tente novamente em instantes."
                 return self._send_json(e.code if e.code in [400, 401, 403, 422] else 502, {
                     "success": False,
                     "message": msg,
-                    "error_code": e.code
+                    "error_code": e.code,
+                    "diagnostics": {
+                        "upstream_url": upstream_url,
+                        "upstream_status": e.code,
+                        "upstream_time_ms": elapsed_ms,
+                        "token_mode": tok_mode,
+                        "token_prefix": tok_prefix,
+                        "reason": str(e.reason),
+                        "upstream_snippet": err_text[:120].strip()
+                    }
                 })
             except Exception as e:
                 print(f"[Generate Error] {type(e).__name__}: {e}", flush=True)
@@ -444,43 +486,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 print(f"[CaosPay Webhook Error] {e}")
                 return self._send_json(500, {"success": False, "message": "Webhook processing error"})
 
-        # Route 3: Sandbox Confirm Simulation
-        elif path == "/api/payments/sandbox/confirm":
-            try:
-                length = int(self.headers.get("Content-Length", 0))
-                raw_body = self.rfile.read(length).decode("utf-8")
-                body = json.loads(raw_body)
-                tx_id = body.get("id") or body.get("payment_id") or body.get("transaction_id")
-
-                if not tx_id:
-                    return self._send_json(400, {"success": False, "message": "id or payment_id required"})
-
-                payment = get_payment_by_provider_id(tx_id)
-                if not payment:
-                    return self._send_json(404, {"success": False, "message": "Payment not found"})
-
-                # Call CaosPay Sandbox Confirm API
-                # NOTE: We DO NOT mark the payment as paid in local database!
-                # In real Sandbox, CaosPay receives the confirm request, processes it,
-                # and fires the webhook to /api/webhooks/caospay, which verifies /status and updates the DB.
-                confirm_res = caospay_client.sandbox_confirm(tx_id)
-
-                # In explicit mock mode ONLY, simulate the confirmation loop:
-                if USE_PAYMENT_MOCK:
-                    fee_cents = payment.get("fee_cents") or 99
-                    net_cents = payment["amount_cents"] - fee_cents
-                    mark_payment_as_paid(tx_id, fee_cents=fee_cents, net_amount_cents=net_cents)
-                    print(f"[CaosPay] payment confirmed id={tx_id} (mock mode)")
-
-                return self._send_json(200, {
-                    "success": True,
-                    "id": tx_id,
-                    "caospay_response": confirm_res
-                })
-
-            except Exception as e:
-                print(f"[Sandbox Confirm Error] {e}")
-                return self._send_json(500, {"success": False, "message": str(e)})
 
         # Route 4: Test E2E Report Receiver (Developer test utility)
         elif path == "/api/test-e2e-report":
@@ -501,12 +506,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         clean_path = self.path.split("?")[0].rstrip("/")
 
-        # Health check
-        if clean_path in ["/api", "/api/health"]:
+        # Health & Version check
+        if clean_path in ["/api", "/api/health", "/api/version"]:
+            is_prod = not caospay_client.token.startswith("cpk_test_")
             return self._send_json(200, {
                 "status": "ok",
                 "service": "vakinha-caospay-api",
-                "environment": "local"
+                "environment": "local",
+                "token_mode": "production" if is_prod else "sandbox",
+                "token_prefix": caospay_client.token[:8] + "..." if caospay_client.token else "empty",
+                "gateway_url": caospay_client.base_url
             })
 
         # Route: Payment Status Polling (GET /api/payments/<id>/status)

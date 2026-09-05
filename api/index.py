@@ -151,18 +151,33 @@ class handler(BaseHTTPRequestHandler):
 
             except urllib.error.HTTPError as e:
                 err_text = getattr(e, "custom_detail", "")
-                print(f"[Vercel Generate Error HTTP {e.code}] Upstream CaosPay: {err_text[:200]}", flush=True)
+                elapsed_ms = getattr(e, "elapsed_ms", 0)
+                tok_mode = getattr(e, "token_mode", "production")
+                tok_prefix = getattr(e, "token_prefix", "unknown")
+                upstream_url = getattr(e, "upstream_url", "https://caospayment.shop/api/pay/generate")
+
+                print(f"[Vercel Generate Error HTTP {e.code}] Upstream CaosPay in {elapsed_ms}ms: {err_text[:200]}", flush=True)
                 msg = "Não foi possível gerar o PIX agora. Tente novamente em alguns instantes."
                 if e.code == 401:
                     msg = "Credenciais do provedor de pagamento inválidas ou expiradas."
                 elif e.code == 400:
                     msg = "Dados inválidos para a criação do PIX. Verifique os valores informados."
                 elif e.code in [502, 503, 504]:
-                    msg = "O gateway de pagamento CaosPay está temporariamente instável. Tente novamente em instantes."
+                    msg = "O gateway de pagamento CaosPay está temporariamente instável (HTTP 502 da origem caospayment.shop). Tente novamente em instantes."
+
                 return self._send_json(e.code if e.code in [400, 401, 403, 422] else 502, {
                     "success": False,
                     "message": msg,
-                    "error_code": e.code
+                    "error_code": e.code,
+                    "diagnostics": {
+                        "upstream_url": upstream_url,
+                        "upstream_status": e.code,
+                        "upstream_time_ms": elapsed_ms,
+                        "token_mode": tok_mode,
+                        "token_prefix": tok_prefix,
+                        "reason": str(e.reason),
+                        "upstream_snippet": err_text[:120].strip()
+                    }
                 })
             except Exception as e:
                 print(f"[Vercel Generate Error] {type(e).__name__}: {e}", flush=True)
@@ -235,50 +250,22 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[Vercel Webhook Error] {e}", flush=True)
                 return self._send_json(500, {"success": False, "message": "Webhook processing error"})
 
-        # -------------------------------------------------------------
-        # Route 3: Sandbox Confirm Simulation
-        # -------------------------------------------------------------
-        elif path == "/api/payments/sandbox/confirm":
-            try:
-                length = int(self.headers.get("Content-Length", 0))
-                raw_body = self.rfile.read(length).decode("utf-8")
-                body = json.loads(raw_body) if raw_body else {}
-                tx_id = body.get("id") or body.get("payment_id") or body.get("transaction_id")
-
-                if not tx_id:
-                    return self._send_json(400, {"success": False, "message": "id or payment_id required"})
-
-                confirm_res = caospay_client.sandbox_confirm(tx_id)
-
-                if USE_PAYMENT_MOCK:
-                    payment = get_payment_by_provider_id(tx_id)
-                    if payment:
-                        fee_cents = payment.get("fee_cents") or 99
-                        net_cents = payment["amount_cents"] - fee_cents
-                        mark_payment_as_paid(tx_id, fee_cents=fee_cents, net_amount_cents=net_cents)
-
-                return self._send_json(200, {
-                    "success": True,
-                    "id": tx_id,
-                    "caospay_response": confirm_res
-                })
-
-            except Exception as e:
-                print(f"[Vercel Sandbox Confirm Error] {e}", flush=True)
-                return self._send_json(500, {"success": False, "message": str(e)})
-
         else:
             return self._send_json(404, {"error": "Not Found", "path": path})
 
     def do_GET(self):
         clean_path = self.get_clean_path()
 
-        # Health check
-        if clean_path in ["/api", "/api/health"]:
+        # Health & Version check
+        if clean_path in ["/api", "/api/health", "/api/version"]:
+            is_prod = not caospay_client.token.startswith("cpk_test_")
             return self._send_json(200, {
                 "status": "ok",
                 "service": "vakinha-caospay-api",
-                "environment": "vercel-serverless"
+                "environment": "vercel-serverless",
+                "token_mode": "production" if is_prod else "sandbox",
+                "token_prefix": caospay_client.token[:8] + "..." if caospay_client.token else "empty",
+                "gateway_url": caospay_client.base_url
             })
 
         # Route: Payment Status Polling (GET /api/payments/<id>/status)
