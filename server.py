@@ -246,6 +246,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "gateway_url": blackcat_client.base_url
             })
 
+        # Route: /abrigo serving abrigo/index.html directly
+        if clean_path == "/abrigo":
+            abrigo_html = os.path.join(DIRECTORY, "abrigo", "index.html")
+            if os.path.exists(abrigo_html):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                with open(abrigo_html, "rb") as f:
+                    content = f.read()
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+
         # Route: Payment Status Polling (GET /api/payments/<id>/status or GET /api/payments/pix/status?transactionId=...)
         pid = None
         m = re.match(r"^/api/payments/(?P<pid>[^/]+)/status$", clean_path)

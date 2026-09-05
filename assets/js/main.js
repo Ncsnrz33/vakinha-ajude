@@ -3,20 +3,29 @@
  */
 
 // ==========================================================================
-// 1. CENTRALIZED CAMPAIGN CONSTANTS & CONFIGURATION
+// 1. CENTRALIZED MULTI-CAMPAIGN CONFIGURATION (campaigns.original & campaigns.abrigo)
 // ==========================================================================
-const campaignGoal = 1500.00;
-const campaignRaised = 1466.58;
-const campaignRemaining = Math.round((campaignGoal - campaignRaised) * 100) / 100; // 33.42
-const campaignPercentage = (campaignRaised / campaignGoal) * 100; // 97.772%
-
-const campaignConfig = {
-  title: "Sementes do Amanhã — Juntos por um Novo Começo",
-  goalMeta: campaignGoal,
-  currentRaised: campaignRaised,
-  remainingAmount: campaignRemaining,
-  percentage: campaignPercentage,
-  description: `ELAS NÃO ESCOLHERAM A FOME. MUITO MENOS A DOENÇA.
+const campaigns = {
+  original: {
+    id: "6290503",
+    title: "Sementes do Amanhã — Juntos por um Novo Começo",
+    shortTitle: "Sementes do Amanhã",
+    subtitle: "Juntos por um Novo Começo",
+    category: "Saúde / Tratamentos",
+    organizer: "Fernanda Mayumi Machado Masuda",
+    organizerInitials: "FM",
+    organizerSince: "Ativo(a) desde agosto/2026",
+    goalMeta: 1500.00,
+    currentRaised: 1466.58,
+    donorCount: 51,
+    heartCount: 68,
+    videoOfferPrice: 8.99,
+    thankYouMessage: "Obrigado por fazer a diferença na vida das crianças!",
+    skipVideoToast: "Obrigado por apoiar a campanha Sementes do Amanhã!",
+    shareUrl: "https://www.vakinha.com.br/vaquinha/sementes-do-amanha-juntos-por-um-novo-comeco",
+    shareWhatsappText: "Ajude o projeto Sementes do Amanhã - Juntos por um Novo Começo",
+    truncatedDescription: "ELAS NÃO ESCOLHERAM A FOME. MUITO MENOS A DOENÇA. Enquanto tantas crianças brincam, comem e dormem tranquilas, outras enfrentam fome, abandono, falta de estrutura e doenças graves que nenhuma criança deveria conhecer. ",
+    description: `ELAS NÃO ESCOLHERAM A FOME. MUITO MENOS A DOENÇA.
 
 Enquanto tantas crianças brincam, comem e dormem tranquilas, outras enfrentam fome, abandono, falta de estrutura e doenças graves que nenhuma criança deveria conhecer.
 
@@ -32,18 +41,83 @@ E se não puder doar, compartilhe. Talvez um simples compartilhamento seu seja a
 
 Elas já enfrentam coisas demais. Não deixe que a falta de ajuda seja mais uma delas.
 
-Doe por uma criança que só queria ter o direito de ser criança.`,
-  videoOfferPrice: 8.99,
-  donorCount: 51,
-  heartCount: 68
+Doe por uma criança que só queria ter o direito de ser criança.`
+  },
+  abrigo: {
+    id: "6290504",
+    title: "Abrigo São João de Assis",
+    shortTitle: "Abrigo São João de Assis",
+    subtitle: "Cuidando com amor de mais de 120 animais abandonados",
+    category: "Animais / Resgate e Proteção",
+    organizer: "Seu Valmor",
+    organizerInitials: "SV",
+    organizerSince: "Ativo(a) há mais de 7 anos",
+    goalMeta: 1500.00,
+    currentRaised: 1466.58,
+    donorCount: 51,
+    heartCount: 68,
+    videoOfferPrice: 8.99,
+    thankYouMessage: "Obrigado por fazer a diferença na vida dos mais de 120 animais do abrigo!",
+    skipVideoToast: "Obrigado por apoiar o Abrigo São João de Assis!",
+    shareUrl: "https://www.vakinha.com.br/vaquinha/abrigo-sao-joao-de-assis",
+    shareWhatsappText: "Ajude o Abrigo São João de Assis - Mais de 120 animais dependem de nós",
+    truncatedDescription: "ELES NÃO SABEM POR QUE FORAM ABANDONADOS. SÓ SABEM QUE ESTÃO COM FOME. Há mais de 7 anos, Seu Valmor, de 78 anos, dedica a própria vida a cuidar de animais que ninguém mais quis. Hoje, são mais de 120 cachorros. ",
+    description: `💔 ELES NÃO SABEM POR QUE FORAM ABANDONADOS. SÓ SABEM QUE ESTÃO COM FOME.
+
+Há mais de 7 anos, Seu Valmor, de 78 anos, dedica a própria vida a cuidar de animais que ninguém mais quis.
+
+Hoje, são mais de 120 cachorros. Muitos foram abandonados, chegaram doentes, machucados e sem ter sequer o que comer. Agora, todos dependem dele.
+
+🐾 Todos os dias, mais de 120 olhares esperam pelo mesmo homem.
+
+O homem que, mesmo aos 78 anos, enfrenta o cansaço, o frio, o calor e as próprias dificuldades para garantir que nenhum deles durma com fome.
+
+Mas Seu Valmor não consegue fazer tudo sozinho.
+
+O Abrigo São João de Assis precisa de ração, medicamentos, combustível e atendimento para continuar salvando essas vidas.
+
+🙏 R$ 5 ou R$ 10 podem parecer pouco para você. Mas, para um cachorro que não sabe se terá comida amanhã, pode significar tudo.
+
+Se puder, ajude. Se não puder, compartilhe.
+
+💔 Eles não podem pedir socorro. Não conseguem dizer que estão com dor. Só conseguem olhar para nós e esperar.
+
+E, enquanto ainda existe esperança nos olhos deles, não podemos simplesmente virar as costas.
+
+❤️ Ajude o Abrigo São João de Assis. Ajude mais de 120 vidas que já foram abandonadas uma vez e que agora só têm o Seu Valmor e pessoas como você. 🐾🙏`
+  }
 };
 
+function getActiveCampaignKey() {
+  if (typeof document !== 'undefined') {
+    if (document.body && document.body.dataset && document.body.dataset.campaign === 'abrigo') return 'abrigo';
+    if (document.documentElement && document.documentElement.dataset && document.documentElement.dataset.campaign === 'abrigo') return 'abrigo';
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    if (window.location.pathname.toLowerCase().includes('/abrigo')) return 'abrigo';
+  }
+  return 'original';
+}
+
+const activeCampaignKey = getActiveCampaignKey();
+const campaignConfig = campaigns[activeCampaignKey];
+
+// Dynamically calculate remaining amount and percentage for active campaign
+campaignConfig.remainingAmount = Math.round((campaignConfig.goalMeta - campaignConfig.currentRaised) * 100) / 100;
+campaignConfig.percentage = (campaignConfig.currentRaised / campaignConfig.goalMeta) * 100;
+
+const campaignGoal = campaignConfig.goalMeta;
+const campaignRaised = campaignConfig.currentRaised;
+const campaignRemaining = campaignConfig.remainingAmount;
+const campaignPercentage = campaignConfig.percentage;
+
 // Expose globally for inspections/extensions
+window.campaigns = campaigns;
+window.campaignConfig = campaignConfig;
 window.campaignGoal = campaignGoal;
 window.campaignRaised = campaignRaised;
 window.campaignRemaining = campaignRemaining;
 window.campaignPercentage = campaignPercentage;
-window.campaignConfig = campaignConfig;
 
 // Centralized minimum goal completion threshold in integer cents (R$ 2,00)
 const MIN_GOAL_COMPLETION_CENTS = 200;
@@ -198,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!verTudoBtn || !shortDesc) return;
 
     const heartCrackSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;display:inline-block;margin-right:4px"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="m12 13-1-1 2-2-3-3 2-2"/></svg>';
-    const truncated = `${heartCrackSvg} ELAS NÃO ESCOLHERAM A FOME. MUITO MENOS A DOENÇA. Enquanto tantas crianças brincam, comem e dormem tranquilas, outras enfrentam fome, abandono, falta de estrutura e doenças graves que nenhuma criança deveria conhecer. `;
+    const truncated = `${heartCrackSvg} ${campaignConfig.truncatedDescription}`;
     const full = campaignConfig.description.replace(/\n\n/g, '<br><br>');
 
     verTudoBtn.onclick = (e) => {
@@ -1145,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     postBtnSkipVideo.addEventListener('click', (e) => {
       e.preventDefault();
       closeModal('post-donation-modal');
-      showToast('Obrigado por apoiar a campanha Sementes do Amanhã!');
+      showToast(campaignConfig.skipVideoToast || `Obrigado por apoiar a campanha ${campaignConfig.shortTitle}!`);
     });
   }
 
@@ -1156,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (postBtnFinish) {
     postBtnFinish.addEventListener('click', () => {
       closeModal('post-donation-modal');
-      showToast('Obrigado por fazer a diferença na vida das crianças!');
+      showToast(campaignConfig.thankYouMessage || 'Obrigado por fazer a diferença!');
     });
   }
 
