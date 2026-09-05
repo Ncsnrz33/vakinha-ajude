@@ -3,10 +3,19 @@
  */
 
 // ==========================================================================
-// 1. CENTRALIZED CAMPAIGN CONFIGURATION
+// 1. CENTRALIZED CAMPAIGN CONSTANTS & CONFIGURATION
 // ==========================================================================
+const campaignGoal = 1500.00;
+const campaignRaised = 1466.58;
+const campaignRemaining = Math.round((campaignGoal - campaignRaised) * 100) / 100; // 33.42
+const campaignPercentage = (campaignRaised / campaignGoal) * 100; // 97.772%
+
 const campaignConfig = {
   title: "Sementes do Amanhã — Juntos por um Novo Começo",
+  goalMeta: campaignGoal,
+  currentRaised: campaignRaised,
+  remainingAmount: campaignRemaining,
+  percentage: campaignPercentage,
   description: `ELAS NÃO ESCOLHERAM A FOME. MUITO MENOS A DOENÇA.
 
 Enquanto tantas crianças brincam, comem e dormem tranquilas, outras enfrentam fome, abandono, falta de estrutura e doenças graves que nenhuma criança deveria conhecer.
@@ -24,14 +33,16 @@ E se não puder doar, compartilhe. Talvez um simples compartilhamento seu seja a
 Elas já enfrentam coisas demais. Não deixe que a falta de ajuda seja mais uma delas.
 
 Doe por uma criança que só queria ter o direito de ser criança.`,
-  remainingAmount: 33.42,
-  goalMeta: 1500.00,
-  currentRaised: 1466.58, // goalMeta - remainingAmount
   videoOfferPrice: 8.99,
-  donorCount: 9720
+  donorCount: 51,
+  heartCount: 68
 };
 
 // Expose globally for inspections/extensions
+window.campaignGoal = campaignGoal;
+window.campaignRaised = campaignRaised;
+window.campaignRemaining = campaignRemaining;
+window.campaignPercentage = campaignPercentage;
 window.campaignConfig = campaignConfig;
 
 // Centralized minimum goal completion threshold in integer cents (R$ 2,00)
@@ -254,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
       modal.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden';
     }
+    if (typeof updateMobileStickyState === 'function') updateMobileStickyState();
   }
   window.openModal = openModal;
 
@@ -264,6 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
       modal.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = '';
     }
+    if (typeof updateMobileStickyState === 'function') updateMobileStickyState();
   }
   window.closeModal = closeModal;
 
@@ -391,6 +404,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mobileStickyRemaining) mobileStickyRemaining.textContent = formatBRL(remaining);
 
     if (donorCountEl) donorCountEl.textContent = campaignConfig.donorCount.toLocaleString('pt-BR');
+    const heartCountEl = document.getElementById('heart-count-value');
+    if (heartCountEl) heartCountEl.textContent = (campaignConfig.heartCount || 68).toLocaleString('pt-BR');
+    const quemAjudouCountEl = document.getElementById('quem-ajudou-count-header');
+    if (quemAjudouCountEl) quemAjudouCountEl.textContent = `${campaignConfig.donorCount} pessoas já apoiaram esta vaquinha`;
 
     // Synchronize Post-Donation Modal Elements
     const postRemainingDisplay = document.getElementById('post-remaining-display');
@@ -906,6 +923,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window.handleCheckoutClosed = handleCheckoutClosed;
 
   function tryShowNormalMinicard() {
+    // Disable floating minicards on mobile (mobile uses bottom sticky bar exclusively)
+    if (window.innerWidth <= 768) return;
+
     // Priority 1: checkout / post-payment active -> no mini-card
     if (isCheckoutActive() || isPostPaymentActive()) return;
     if (sessionStorage.getItem('vk_donation_completed') === '1') return;
@@ -1037,36 +1057,32 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================================================
-  // 8. CRO: MOBILE STICKY BOTTOM CTA BAR (IntersectionObserver)
+  // 8. CRO: MOBILE STICKY BOTTOM CTA BAR
   // ==========================================================================
   const mobileStickyBar = document.getElementById('vk-mobile-sticky-bar');
-  const mainCtaButton = document.querySelector('.vk-cta-premium') || document.querySelector('[data-action="donate"].fhXXgM');
 
-  if (mobileStickyBar && mainCtaButton && 'IntersectionObserver' in window) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (!entry.isIntersecting) {
-          if (window.innerWidth <= 768) {
-            mobileStickyBar.classList.add('visible');
-            mobileStickyBar.setAttribute('aria-hidden', 'false');
-          }
-        } else {
+  if (mobileStickyBar) {
+    function updateMobileStickyState() {
+      if (window.innerWidth <= 768) {
+        // Hide if any modal, checkout, exit intent or mobile burger menu is open
+        const isAnyModalOpen = document.querySelector('.vk-modal-backdrop.active, .vk-post-donation-backdrop.active, .vk-exit-intent-backdrop.active, .bm-menu-wrap.open');
+        if (isAnyModalOpen) {
           mobileStickyBar.classList.remove('visible');
           mobileStickyBar.setAttribute('aria-hidden', 'true');
+        } else {
+          mobileStickyBar.classList.add('visible');
+          mobileStickyBar.setAttribute('aria-hidden', 'false');
         }
-      });
-    }, {
-      threshold: 0.1
-    });
-
-    observer.observe(mainCtaButton);
-
-    window.addEventListener('resize', () => {
-      if (window.innerWidth > 768) {
+      } else {
         mobileStickyBar.classList.remove('visible');
         mobileStickyBar.setAttribute('aria-hidden', 'true');
       }
-    });
+    }
+    window.updateMobileStickyState = updateMobileStickyState;
+
+    window.addEventListener('scroll', updateMobileStickyState, { passive: true });
+    window.addEventListener('resize', updateMobileStickyState);
+    setTimeout(updateMobileStickyState, 200);
 
     const stickyDonateBtn = mobileStickyBar.querySelector('[data-action="donate"]');
     if (stickyDonateBtn) {
