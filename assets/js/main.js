@@ -329,12 +329,131 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.hideCheckoutRecoveryCard = hideCheckoutRecoveryCard;
 
+  // =========================================================================
+  // META PIXEL FUNNEL TRACKING CONTROLLER
+  // =========================================================================
+  const MetaPixelFunnel = {
+    hasFiredDonationValueOpened: false,
+    lastSelectedValue: null,
+    hasFiredInitiateCheckout: false,
+    trackedPixGeneratedIds: new Set(),
+    eventsLog: [],
+
+    track(eventName, params = {}, options = {}) {
+      const record = { event: eventName, params: { ...params }, options: { ...options }, time: Date.now() };
+      this.eventsLog.push(record);
+      if (typeof window.fbq !== 'function') return;
+
+      const standardEvents = ['PageView', 'InitiateCheckout', 'Purchase', 'Lead', 'AddToCart', 'CompleteRegistration'];
+      try {
+        if (standardEvents.includes(eventName)) {
+          if (options && options.eventID) {
+            window.fbq('track', eventName, params, { eventID: String(options.eventID) });
+          } else {
+            window.fbq('track', eventName, params);
+          }
+        } else {
+          // Custom funnel events: DonationValueOpened, DonationValueSelected, PixGenerated
+          if (options && options.eventID) {
+            window.fbq('trackCustom', eventName, params, { eventID: String(options.eventID) });
+          } else {
+            window.fbq('trackCustom', eventName, params);
+          }
+        }
+      } catch (err) {
+        console.warn(`[MetaPixel] Error tracking ${eventName}:`, err);
+      }
+    },
+
+    onDonationValueOpened() {
+      if (this.hasFiredDonationValueOpened) return;
+      this.hasFiredDonationValueOpened = true;
+      this.track('DonationValueOpened');
+    },
+
+    onDonationValueSelected(val) {
+      const numVal = parseFloat(val);
+      if (isNaN(numVal) || numVal <= 0) return;
+      const rounded = Math.round(numVal * 100) / 100;
+      if (this.lastSelectedValue === rounded) return;
+      this.lastSelectedValue = rounded;
+      this.track('DonationValueSelected', {
+        value: rounded,
+        currency: 'BRL'
+      });
+    },
+
+    onInitiateCheckout(val) {
+      if (this.hasFiredInitiateCheckout) return;
+      this.hasFiredInitiateCheckout = true;
+      const numVal = parseFloat(val);
+      const rounded = (!isNaN(numVal) && numVal > 0) ? Math.round(numVal * 100) / 100 : 33.42;
+      // Strictly value and currency - NEVER send personal data (no name, CPF, phone, email)
+      this.track('InitiateCheckout', {
+        value: rounded,
+        currency: 'BRL'
+      });
+    },
+
+    onPixGenerated(txId, amount) {
+      const idKey = String(txId || amount);
+      if (this.trackedPixGeneratedIds.has(idKey)) return;
+      this.trackedPixGeneratedIds.add(idKey);
+      const numVal = parseFloat(amount);
+      const rounded = (!isNaN(numVal) && numVal > 0) ? Math.round(numVal * 100) / 100 : 33.42;
+      this.track('PixGenerated', {
+        value: rounded,
+        currency: 'BRL'
+      });
+    },
+
+    onPurchase(txId, amount) {
+      if (!txId) return;
+      const key = String(txId);
+      let storedPurchases = [];
+      try {
+        storedPurchases = JSON.parse(localStorage.getItem('vk_meta_tracked_purchases') || '[]');
+      } catch (_) {}
+
+      if (storedPurchases.includes(key)) {
+        return;
+      }
+
+      storedPurchases.push(key);
+      try {
+        localStorage.setItem('vk_meta_tracked_purchases', JSON.stringify(storedPurchases));
+      } catch (_) {}
+
+      const numVal = parseFloat(amount);
+      const rounded = (!isNaN(numVal) && numVal > 0) ? Math.round(numVal * 100) / 100 : 33.42;
+
+      this.track('Purchase', {
+        value: rounded,
+        currency: 'BRL'
+      }, {
+        eventID: key // Deduplication between Browser and Server (Conversions API)
+      });
+    },
+
+    onModalClosed(modalId) {
+      if (modalId === 'donate-modal') {
+        this.hasFiredDonationValueOpened = false;
+        this.hasFiredInitiateCheckout = false;
+        this.lastSelectedValue = null;
+      }
+    }
+  };
+  window.MetaPixelFunnel = MetaPixelFunnel;
+
   // --- Modal Helpers ---
   function openModal(modalId) {
     hideNormalMinicard();
     hideCheckoutRecoveryCard();
-    if (modalId === 'donate-modal' && typeof goToDonateStep === 'function') {
-      goToDonateStep(1);
+    if (modalId === 'donate-modal') {
+      if (typeof goToDonateStep === 'function') {
+        goToDonateStep(1);
+      }
+      MetaPixelFunnel.onDonationValueOpened();
     }
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -353,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
       modal.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = '';
     }
+    MetaPixelFunnel.onModalClosed(modalId);
     if (typeof updateMobileStickyState === 'function') updateMobileStickyState();
   }
   window.closeModal = closeModal;
@@ -570,9 +690,13 @@ document.addEventListener('DOMContentLoaded', () => {
           customAmountInput.value = `R$ ${val}`;
         }
       }
+      if (typeof MetaPixelFunnel !== 'undefined') {
+        MetaPixelFunnel.onDonationValueSelected(numVal);
+      }
     });
   });
 
+  let customAmountDebounce = null;
   if (customAmountInput) {
     customAmountInput.addEventListener('input', () => {
       let rawVal = customAmountInput.value.replace(/[^\d,.-]/g, '');
@@ -588,6 +712,21 @@ document.addEventListener('DOMContentLoaded', () => {
           o.classList.remove('selected');
         }
       });
+      clearTimeout(customAmountDebounce);
+      customAmountDebounce = setTimeout(() => {
+        const amt = getSelectedDonationAmount();
+        if (typeof MetaPixelFunnel !== 'undefined') {
+          MetaPixelFunnel.onDonationValueSelected(amt);
+        }
+      }, 500);
+    });
+
+    customAmountInput.addEventListener('change', () => {
+      clearTimeout(customAmountDebounce);
+      const amt = getSelectedDonationAmount();
+      if (typeof MetaPixelFunnel !== 'undefined') {
+        MetaPixelFunnel.onDonationValueSelected(amt);
+      }
     });
   }
 
@@ -648,6 +787,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // Proactively clear previous validation error if any
       const err = document.getElementById('donor-form-error');
       if (err) { err.style.display = 'none'; err.textContent = ''; }
+      if (typeof MetaPixelFunnel !== 'undefined') {
+        MetaPixelFunnel.onInitiateCheckout(amt);
+      }
       setTimeout(() => {
         const nameInput = document.getElementById('donor-name');
         if (nameInput && !nameInput.value) {
@@ -896,6 +1038,11 @@ document.addEventListener('DOMContentLoaded', () => {
             hideNormalMinicard();
             hideCheckoutRecoveryCard();
 
+            // Meta Pixel: Purchase (Fired ONLY after real payment confirmation)
+            if (typeof MetaPixelFunnel !== 'undefined') {
+              MetaPixelFunnel.onPurchase(pid, amount);
+            }
+
             const statusText = document.getElementById('pix-checkout-status-text');
             if (statusText) statusText.textContent = 'Pagamento aprovado!';
             showToast('Pagamento confirmado com sucesso via Pix!');
@@ -997,6 +1144,11 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(data => {
       const paymentObj = data.payment || data;
       currentActivePaymentId = paymentObj.transactionId || paymentObj.id || data.transactionId || data.id;
+
+      // Meta Pixel: PixGenerated (Fired ONLY after API/gateway successfully generates Pix)
+      if (typeof MetaPixelFunnel !== 'undefined') {
+        MetaPixelFunnel.onPixGenerated(currentActivePaymentId, amount);
+      }
 
       // Update QR Code
       let qrSource = paymentObj.qrCodeBase64 || paymentObj.qrImageUrl || paymentObj.qr_code_image_url || paymentObj.qrBase64 || paymentObj.qr_code_base64 || data.qrCodeBase64;
